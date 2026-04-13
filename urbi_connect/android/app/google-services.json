@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "828754552495",
+    "project_id": "urbiconnect-a6849",
+    "storage_bucket": "urbiconnect-a6849.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:828754552495:android:67c45e362579ba9345d65a",
+        "android_client_info": {
+          "package_name": "com.example.urbi_connect"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "828754552495-to6s3je8r1hcr63lttroesq6ut85qer0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.urbi_connect",
+            "certificate_hash": "e6f67bcdcc889f2be8f4a7300b04492887f75768"
+          }
+        },
+        {
+          "client_id": "828754552495-p3ka5ud01ce5770tdgcodpp279qprvo7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB1wbzeDsA3QgVcYfyKLPSMoCcUVHqyseA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "828754552495-p3ka5ud01ce5770tdgcodpp279qprvo7.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "828754552495-c0380399f9peevg5mhbsvdvfus1etvg2.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.urbiConnect"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

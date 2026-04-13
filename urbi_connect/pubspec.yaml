@@ -1,0 +1,39 @@
+name: urbi_connect
+description: Aplicación de gestión de incidencias ciudadanas para el pueblo de Cantillana.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # Firebase (Versiones actualizadas para evitar errores de JS Interop)
+  firebase_core: ^3.6.0
+  firebase_auth: ^5.3.1
+  cloud_firestore: ^5.4.4
+  firebase_storage: ^12.3.2
+
+  # Utilidades y UI
+  provider: ^6.1.2
+  intl: ^0.19.0
+  cached_network_image: ^3.4.1
+
+  # Hardware y Mapas
+  image_picker: ^1.1.2
+  geolocator: ^13.0.1
+  google_maps_flutter: ^2.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  # Comentado para evitar el error de "directory not found"
+  # assets:
+  #   - assets/images/
