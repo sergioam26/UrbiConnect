@@ -23,12 +23,10 @@ class _IncidentFormScreenState extends State<IncidentFormScreen> {
           child: Column(
             children: [
               DropdownButtonFormField<String>(
-                value: _category,
+                initialValue: _category,
                 items: ['Limpieza', 'Alumbrado', 'Vía Pública']
-                    .map(
-                      (label) =>
-                          DropdownMenuItem(value: label, child: Text(label)),
-                    )
+                    .map((label) =>
+                        DropdownMenuItem(value: label, child: Text(label)))
                     .toList(),
                 onChanged: (value) => setState(() => _category = value!),
                 decoration: const InputDecoration(labelText: 'Categoría'),
@@ -36,9 +34,12 @@ class _IncidentFormScreenState extends State<IncidentFormScreen> {
               TextFormField(
                 decoration: const InputDecoration(labelText: 'Descripción'),
                 maxLines: 3,
-                validator: (value) => value == null || value.isEmpty
-                    ? 'Por favor, describe el problema'
-                    : null,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Por favor, describe el problema';
+                  }
+                  return null;
+                },
                 onSaved: (value) => _description = value ?? '',
               ),
               const SizedBox(height: 24),
@@ -64,8 +65,7 @@ class _IncidentFormScreenState extends State<IncidentFormScreen> {
                   onPressed: () {
                     if (_formKey.currentState!.validate()) {
                       _formKey.currentState!.save();
-                      // Ahora _description ya no está marcada como no usada
-                      print('Enviando incidencia: $_description');
+                      debugPrint('Enviando incidencia: $_description');
                       Navigator.pop(context);
                     }
                   },
