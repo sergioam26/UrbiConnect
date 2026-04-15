@@ -24,12 +24,13 @@ class _GoogleAuthButtonState extends State<GoogleAuthButton> {
         onPressed: _isLoading
             ? null
             : () async {
+                final messenger = ScaffoldMessenger.of(context);
                 setState(() => _isLoading = true);
                 final error = await authService.signInWithGoogle();
                 if (!mounted) return;
                 setState(() => _isLoading = false);
                 if (error != null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  messenger.showSnackBar(
                     SnackBar(content: Text(error)),
                   );
                 }

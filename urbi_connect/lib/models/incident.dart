@@ -31,7 +31,9 @@ class Incident {
       imageUrl: data['foto_url'],
       latitude: (data['latitud'] ?? 0.0).toDouble(),
       longitude: (data['longitud'] ?? 0.0).toDouble(),
-      createdAt: (data['fecha_creacion'] as Timestamp).toDate(),
+      createdAt: data['fecha_creacion'] != null
+          ? (data['fecha_creacion'] as Timestamp).toDate()
+          : DateTime.now(),
       status: data['estado'] ?? 'pendiente',
       userId: data['id_usuario'] ?? '',
       categoryId: data['id_categoria'] ?? '',

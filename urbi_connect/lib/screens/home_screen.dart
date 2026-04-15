@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:urbi_connect/screens/incidents/incident_form_screen.dart';
 import 'package:urbi_connect/screens/incidents/incident_list_screen.dart';
+import 'package:urbi_connect/screens/notifications/notification_list_screen.dart';
+import 'package:urbi_connect/screens/profile_screen.dart';
 import 'package:urbi_connect/services/auth_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -16,8 +18,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   static const List<Widget> _pages = [
     IncidentListScreen(),
-    Center(child: Text('Notificaciones')),
-    Center(child: Text('Perfil')),
+    NotificationListScreen(),
+    ProfileScreen(),
   ];
 
   @override

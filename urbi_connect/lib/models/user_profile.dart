@@ -3,6 +3,7 @@ class UserProfile {
   final String name;
   final String email;
   final String role; // 'Ciudadano', 'Responsable', 'Admin'
+  final String? category; // Para Responsables
   final String? pushToken;
 
   UserProfile({
@@ -10,6 +11,7 @@ class UserProfile {
     required this.name,
     required this.email,
     required this.role,
+    this.category,
     this.pushToken,
   });
 
@@ -19,6 +21,7 @@ class UserProfile {
       name: data['nombre'] ?? '',
       email: data['email'] ?? '',
       role: data['rol'] ?? 'Ciudadano',
+      category: data['categoria'],
       pushToken: data['token_push'],
     );
   }
@@ -28,6 +31,7 @@ class UserProfile {
       'nombre': name,
       'email': email,
       'rol': role,
+      'categoria': category,
       'token_push': pushToken,
     };
   }
