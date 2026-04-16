@@ -88,7 +88,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 controller: _emailController,
                 textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
-                  labelText: 'Email o Usuario',
+                  labelText: 'Email o usuario',
                   prefixIcon: const Icon(Icons.person_outline),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -143,7 +143,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: CircularProgressIndicator(
                               color: Colors.white, strokeWidth: 2),
                         )
-                      : const Text('INICIAR SESIÓN',
+                      : const Text('Iniciar sesión',
                           style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ),

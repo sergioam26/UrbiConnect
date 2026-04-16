@@ -1,5 +1,6 @@
 import 'dart:io' show File;
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -20,25 +21,45 @@ class _IncidentFormScreenState extends State<IncidentFormScreen> {
   final DatabaseService _dbService = DatabaseService();
   final _descriptionController = TextEditingController();
 
-  String _category = 'LIMPIEZA';
+  String? _selectedCategoryId;
+  List<Map<String, String>> _firestoreCategories = [];
   XFile? _imageFile;
   Uint8List? _webImage;
   Position? _currentPosition;
   bool _isLoading = false;
 
-  final List<String> _categories = [
-    'LIMPIEZA',
-    'ALUMBRADO',
-    'VÍA PÚBLICA',
-    'RED DE ALCANTARILLADO',
-    'CONTROL DE PLAGAS',
-    'JARDINERÍA',
-    'TRÁFICO Y SEÑALIZACIÓN',
-    'MOBILIARIO URBANO',
-    'OBRAS O INFRAESTRUCTURA EN CONSTRUCCIÓN',
-  ];
-
   final ImagePicker _picker = ImagePicker();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final snapshot =
+          await FirebaseFirestore.instance.collection('Categoria').get();
+      final cats = snapshot.docs
+          .map((doc) => {
+                'id': doc.id,
+                'nombre': doc.get('nombre').toString(),
+                'descripcion': doc.data().containsKey('descripcion')
+                    ? doc.get('descripcion').toString()
+                    : '',
+              })
+          .toList();
+
+      setState(() {
+        _firestoreCategories = cats;
+        if (cats.isNotEmpty) {
+          _selectedCategoryId = cats.first['id'];
+        }
+      });
+    } catch (e) {
+      debugPrint('Error loading categories: $e');
+    }
+  }
 
   @override
   void dispose() {
@@ -249,7 +270,7 @@ class _IncidentFormScreenState extends State<IncidentFormScreen> {
           createdAt: DateTime.now(),
           status: 'pendiente',
           userId: user.uid,
-          categoryId: _category,
+          categoryId: _selectedCategoryId ?? '',
         );
 
         await _dbService.createIncident(incident);
@@ -284,21 +305,42 @@ class _IncidentFormScreenState extends State<IncidentFormScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    DropdownButtonFormField<String>(
-                      initialValue: _category,
-                      items: _categories
-                          .map((label) => DropdownMenuItem(
-                              value: label,
-                              child: Text(label,
-                                  style: const TextStyle(fontSize: 12))))
-                          .toList(),
-                      onChanged: (value) => setState(() => _category = value!),
-                      decoration: const InputDecoration(
-                        labelText: 'Categoría',
-                        border: OutlineInputBorder(),
+                    if (_firestoreCategories.isEmpty)
+                      const LinearProgressIndicator()
+                    else
+                      DropdownButtonFormField<String>(
+                        initialValue: _selectedCategoryId,
+                        items: _firestoreCategories
+                            .map((cat) => DropdownMenuItem(
+                                  value: cat['id'],
+                                  child: Text(cat['nombre']!,
+                                      style: const TextStyle(fontSize: 12)),
+                                ))
+                            .toList(),
+                        onChanged: (value) =>
+                            setState(() => _selectedCategoryId = value),
+                        decoration: const InputDecoration(
+                          labelText: 'Categoría',
+                          border: OutlineInputBorder(),
+                        ),
+                        isExpanded: true,
                       ),
-                      isExpanded: true,
-                    ),
+                    if (_selectedCategoryId != null) ...[
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Text(
+                          _firestoreCategories.firstWhere((c) =>
+                                  c['id'] ==
+                                  _selectedCategoryId)['descripcion'] ??
+                              '',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                              fontStyle: FontStyle.italic),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _descriptionController,
@@ -355,7 +397,7 @@ class _IncidentFormScreenState extends State<IncidentFormScreen> {
                                 onPressed: () =>
                                     _showImageSourceActionSheet(context),
                                 icon: const Icon(Icons.camera_alt),
-                                label: const Text('Añadir Foto'),
+                                label: const Text('Añadir foto'),
                                 style: ElevatedButton.styleFrom(
                                     minimumSize:
                                         const Size(double.infinity, 40)),
@@ -429,7 +471,7 @@ class _IncidentFormScreenState extends State<IncidentFormScreen> {
                           backgroundColor: const Color(0xFF6750A4),
                           foregroundColor: Colors.white,
                         ),
-                        child: const Text('ENVIAR INCIDENCIA',
+                        child: const Text('Enviar incidencia',
                             style: TextStyle(fontWeight: FontWeight.bold)),
                       ),
                     ),

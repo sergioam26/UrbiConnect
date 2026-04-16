@@ -1,9 +1,12 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:urbi_connect/models/incident.dart';
 import 'package:urbi_connect/screens/incidents/chat_screen.dart';
+import 'package:urbi_connect/services/database_service.dart';
 
 class IncidentDetailScreen extends StatelessWidget {
   final Incident incident;
@@ -13,7 +16,7 @@ class IncidentDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Detalle de Incidencia')),
+      appBar: AppBar(title: const Text('Detalle de incidencia')),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -68,13 +71,25 @@ class IncidentDetailScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    incident.categoryId,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).primaryColor,
-                    ),
+                  FutureBuilder<DocumentSnapshot>(
+                    future: FirebaseFirestore.instance
+                        .collection('Categoria')
+                        .doc(incident.categoryId)
+                        .get(),
+                    builder: (context, snapshot) {
+                      String catName = incident.categoryId;
+                      if (snapshot.hasData && snapshot.data!.exists) {
+                        catName = snapshot.data!.get('nombre');
+                      }
+                      return Text(
+                        catName,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).primaryColor,
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 8),
                   const Text(
@@ -133,12 +148,27 @@ class IncidentDetailScreen extends StatelessWidget {
                     leading: const Icon(Icons.notifications_active,
                         color: Colors.orange),
                     title: const Text('Enviar recordatorio al ayuntamiento'),
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text(
-                                'Recordatorio enviado al responsable municipal.')),
-                      );
+                    onTap: () async {
+                      final success =
+                          await DatabaseService().sendReminder(incident);
+
+                      if (context.mounted) {
+                        if (success) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content:
+                                    Text('Recordatorio enviado con éxito.')),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                  'Solo puedes enviar un recordatorio cada 3 días.'),
+                              backgroundColor: Colors.orange,
+                            ),
+                          );
+                        }
+                      }
                     },
                   ),
                   ListTile(
@@ -154,11 +184,76 @@ class IncidentDetailScreen extends StatelessWidget {
                       );
                     },
                   ),
+                  if (FirebaseAuth.instance.currentUser?.uid ==
+                      incident.userId) ...[
+                    const SizedBox(height: 8),
+                    ListTile(
+                      leading:
+                          const Icon(Icons.delete_forever, color: Colors.red),
+                      title: const Text('Eliminar incidencia',
+                          style: TextStyle(color: Colors.red)),
+                      onTap: () => _confirmDelete(context),
+                    ),
+                  ],
                 ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context) {
+    FocusScope.of(context).unfocus();
+    final reasonController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Eliminar incidencia'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+                '¿Estás seguro de que deseas eliminar esta incidencia? Esta acción no se puede deshacer.'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: reasonController,
+              decoration: const InputDecoration(
+                labelText: 'Motivo de la eliminación',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () async {
+              if (reasonController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Por favor, indica un motivo')),
+                );
+                return;
+              }
+
+              await DatabaseService()
+                  .deleteIncident(incident.id, reasonController.text.trim());
+              if (context.mounted) {
+                Navigator.pop(context); // Cerrar diálogo
+                Navigator.pop(context); // Volver a la lista
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text('Incidencia eliminada con éxito')),
+                );
+              }
+            },
+            child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+          ),
+        ],
       ),
     );
   }
@@ -180,7 +275,7 @@ class IncidentDetailScreen extends StatelessWidget {
     }
     return Chip(
       label: Text(
-        status.toUpperCase(),
+        status[0].toUpperCase() + status.substring(1),
         style: const TextStyle(
             color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
       ),

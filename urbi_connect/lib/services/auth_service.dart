@@ -6,10 +6,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 class AuthService with ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    clientId:
-        '828754552495-p3ka5ud01ce5770tdgcodpp279qprvo7.apps.googleusercontent.com',
-  );
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   Stream<User?> get user => _auth.authStateChanges();
 
@@ -71,13 +68,41 @@ class AuthService with ChangeNotifier {
         // Send verification email
         await user.sendEmailVerification();
 
-        // Store extra data in Firestore
+        // Check if a profile was pre-created by Admin
+        final preProfileQuery = await _db
+            .collection('users')
+            .where('email', isEqualTo: email)
+            .get();
+        String role = 'Ciudadano';
+
+        // Default Admin for the project owner
+        if (email == 'sergioalgmir@gmail.com') {
+          role = 'Admin';
+        }
+
+        String? category;
+
+        if (preProfileQuery.docs.isNotEmpty) {
+          final preDoc = preProfileQuery.docs.first;
+          role = preDoc.get('rol') ?? 'Ciudadano';
+          category = preDoc.data().containsKey('id_categoria')
+              ? preDoc.get('id_categoria')
+              : null;
+
+          // Delete the temporary pre-profile if it was using email as ID
+          if (preDoc.id == email) {
+            await _db.collection('users').doc(email).delete();
+          }
+        }
+
+        // Store extra data in Firestore with the correct UID
         await _db.collection('users').doc(user.uid).set({
           'nombre': name,
           'apellidos': surnames,
           'usuario': username,
           'email': email,
-          'rol': 'Ciudadano',
+          'rol': role,
+          'id_categoria': category,
           'fecha_registro': FieldValue.serverTimestamp(),
         });
       }
@@ -109,12 +134,43 @@ class AuthService with ChangeNotifier {
         DocumentSnapshot doc =
             await _db.collection('users').doc(user.uid).get();
         if (!doc.exists) {
+          final email = user.email ?? '';
+
+          // Check if a profile was pre-created by Admin
+          final preProfileQuery = await _db
+              .collection('users')
+              .where('email', isEqualTo: email)
+              .get();
+          String role = 'Ciudadano';
+
+          // Default Admin for the project owner
+          if (email == 'sergioalgmir@gmail.com') {
+            role = 'Admin';
+          }
+
+          String? category;
+          String name = user.displayName ?? '';
+
+          if (preProfileQuery.docs.isNotEmpty) {
+            final preDoc = preProfileQuery.docs.first;
+            role = preDoc.get('rol') ?? 'Ciudadano';
+            category = preDoc.data().containsKey('id_categoria')
+                ? preDoc.get('id_categoria')
+                : null;
+            name = preDoc.get('nombre') ?? name;
+
+            if (preDoc.id == email) {
+              await _db.collection('users').doc(email).delete();
+            }
+          }
+
           await _db.collection('users').doc(user.uid).set({
-            'nombre': user.displayName ?? '',
+            'nombre': name,
             'apellidos': '',
-            'usuario': user.email?.split('@')[0] ?? '',
-            'email': user.email ?? '',
-            'rol': 'Ciudadano',
+            'usuario': email.split('@')[0],
+            'email': email,
+            'rol': role,
+            'id_categoria': category,
             'fecha_registro': FieldValue.serverTimestamp(),
           });
         }
@@ -124,7 +180,7 @@ class AuthService with ChangeNotifier {
       return 'Error de Firebase: ${e.message}';
     } catch (e) {
       debugPrint('Error en Google Sign-In: $e');
-      return 'No se pudo iniciar sesión con Google.';
+      return 'No se pudo iniciar sesión con Google. Revisa la consola para más detalles.';
     }
   }
 

@@ -1,34 +1,95 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:urbi_connect/models/chat_message.dart';
+import 'package:urbi_connect/services/chat_service.dart';
 
-class ChatScreen extends StatelessWidget {
+class ChatScreen extends StatefulWidget {
   final String incidentId;
 
   const ChatScreen({super.key, required this.incidentId});
 
   @override
+  State<ChatScreen> createState() => _ChatScreenState();
+}
+
+class _ChatScreenState extends State<ChatScreen> {
+  final TextEditingController _messageController = TextEditingController();
+  final ChatService _chatService = ChatService();
+  final String _currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+
+  void _sendMessage() {
+    if (_messageController.text.trim().isEmpty) {
+      return;
+    }
+
+    _chatService.sendMessage(
+      widget.incidentId,
+      _currentUserId,
+      _messageController.text.trim(),
+    );
+    _messageController.clear();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chat con responsable municipal'),
+        title: const Text('Chat de incidencia'),
       ),
       body: Column(
         children: [
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: const [
-                ChatBubble(
-                  message:
-                      'Hola, he recibido tu incidencia sobre la limpieza en la calle Real. Estamos enviando un equipo ahora mismo.',
-                  isMe: false,
-                  sender: 'Responsable Municipal',
-                ),
-                ChatBubble(
-                  message: 'Muchas gracias por la rapidez.',
-                  isMe: true,
-                  sender: 'Yo',
-                ),
-              ],
+            child: StreamBuilder<List<ChatMessage>>(
+              stream: _chatService.getMessages(widget.incidentId),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return const Center(child: Text('Error al cargar mensajes'));
+                }
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final messages = snapshot.data ?? [];
+
+                if (messages.isEmpty) {
+                  return const Center(
+                      child: Text(
+                          'No hay mensajes aún. ¡Inicia la conversación!'));
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: messages.length,
+                  itemBuilder: (context, index) {
+                    final msg = messages[index];
+                    return FutureBuilder<DocumentSnapshot>(
+                      future: FirebaseFirestore.instance
+                          .collection('users')
+                          .doc(msg.senderId)
+                          .get(),
+                      builder: (context, userSnapshot) {
+                        String senderName = 'Cargando...';
+                        if (userSnapshot.hasData && userSnapshot.data!.exists) {
+                          final userData =
+                              userSnapshot.data!.data() as Map<String, dynamic>;
+                          senderName = userData['nombre'] ??
+                              userData['email'] ??
+                              'Usuario';
+                        }
+
+                        return ChatBubble(
+                          message: msg.text,
+                          isMe: msg.senderId == _currentUserId,
+                          sender: msg.senderId == _currentUserId
+                              ? 'Tú'
+                              : senderName,
+                        );
+                      },
+                    );
+                  },
+                );
+              },
             ),
           ),
           _buildMessageInput(),
@@ -53,6 +114,7 @@ class ChatScreen extends StatelessWidget {
         children: [
           Expanded(
             child: TextField(
+              controller: _messageController,
               decoration: InputDecoration(
                 hintText: 'Escribe un mensaje...',
                 border: OutlineInputBorder(
@@ -63,6 +125,7 @@ class ChatScreen extends StatelessWidget {
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               ),
+              onSubmitted: (_) => _sendMessage(),
             ),
           ),
           const SizedBox(width: 8),
@@ -70,7 +133,7 @@ class ChatScreen extends StatelessWidget {
             backgroundColor: const Color(0xFF6750A4),
             child: IconButton(
               icon: const Icon(Icons.send, color: Colors.white),
-              onPressed: () {},
+              onPressed: _sendMessage,
             ),
           ),
         ],

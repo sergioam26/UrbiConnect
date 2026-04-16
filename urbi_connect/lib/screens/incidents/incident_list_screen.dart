@@ -1,10 +1,12 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:urbi_connect/models/incident.dart';
 import 'package:urbi_connect/models/user_profile.dart';
 import 'package:urbi_connect/screens/incidents/incident_detail_screen.dart';
+import 'package:urbi_connect/screens/incidents/responsible_incident_detail_screen.dart';
 import 'package:urbi_connect/services/database_service.dart';
 
 class IncidentListScreen extends StatelessWidget {
@@ -106,10 +108,23 @@ class IncidentListScreen extends StatelessWidget {
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(incident.categoryId,
-                            style: TextStyle(
-                                color: Theme.of(context).primaryColor,
-                                fontSize: 12)),
+                        FutureBuilder<DocumentSnapshot>(
+                          future: FirebaseFirestore.instance
+                              .collection('Categoria')
+                              .doc(incident.categoryId)
+                              .get(),
+                          builder: (context, catSnapshot) {
+                            String catName = incident.categoryId;
+                            if (catSnapshot.hasData &&
+                                catSnapshot.data!.exists) {
+                              catName = catSnapshot.data!.get('nombre');
+                            }
+                            return Text(catName,
+                                style: TextStyle(
+                                    color: Theme.of(context).primaryColor,
+                                    fontSize: 12));
+                          },
+                        ),
                         Text(
                             DateFormat('dd/MM/yyyy HH:mm')
                                 .format(incident.createdAt),
@@ -118,13 +133,25 @@ class IncidentListScreen extends StatelessWidget {
                     ),
                     trailing: _buildStatusChip(incident.status),
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              IncidentDetailScreen(incident: incident),
-                        ),
-                      );
+                      if (profile.role == 'Responsable' ||
+                          profile.role == 'Responsable Municipal') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                ResponsibleIncidentDetailScreen(
+                                    incident: incident),
+                          ),
+                        );
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                IncidentDetailScreen(incident: incident),
+                          ),
+                        );
+                      }
                     },
                   ),
                 );
@@ -152,8 +179,10 @@ class IncidentListScreen extends StatelessWidget {
         color = Colors.grey;
     }
     return Chip(
-      label: Text(status,
-          style: const TextStyle(color: Colors.white, fontSize: 12)),
+      label: Text(
+        status[0].toUpperCase() + status.substring(1),
+        style: const TextStyle(color: Colors.white, fontSize: 12),
+      ),
       backgroundColor: color,
     );
   }

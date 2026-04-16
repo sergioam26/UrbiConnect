@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:urbi_connect/services/auth_service.dart';
 import 'package:urbi_connect/components/google_auth_button.dart';
+import 'package:urbi_connect/services/auth_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -47,7 +47,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   Navigator.pop(context);
                   Navigator.pop(context);
                 },
-                child: const Text('ENTENDIDO'),
+                child: const Text('Entendido'),
               ),
             ],
           ),
@@ -90,7 +90,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   decoration: InputDecoration(
                     labelText: 'Nombre',
                     prefixIcon: const Icon(Icons.person_outline),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -106,7 +107,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   decoration: InputDecoration(
                     labelText: 'Apellidos',
                     prefixIcon: const Icon(Icons.people_outline),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -120,9 +122,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   controller: _usernameController,
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
-                    labelText: 'Nombre de Usuario',
+                    labelText: 'Nombre de usuario',
                     prefixIcon: const Icon(Icons.alternate_email),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -138,7 +141,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   decoration: InputDecoration(
                     labelText: 'Email',
                     prefixIcon: const Icon(Icons.email_outlined),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -160,7 +164,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                        _obscurePassword
+                            ? Icons.visibility_off
+                            : Icons.visibility,
                         color: const Color(0xFF6750A4),
                       ),
                       onPressed: () {
@@ -169,7 +175,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         });
                       },
                     ),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -188,11 +195,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   textInputAction: TextInputAction.done,
                   onFieldSubmitted: (_) => _handleRegister(authService),
                   decoration: InputDecoration(
-                    labelText: 'Repetir Contraseña',
+                    labelText: 'Repetir contraseña',
                     prefixIcon: const Icon(Icons.lock_reset),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                        _obscureConfirmPassword
+                            ? Icons.visibility_off
+                            : Icons.visibility,
                         color: const Color(0xFF6750A4),
                       ),
                       onPressed: () {
@@ -201,7 +210,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         });
                       },
                     ),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -218,19 +228,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   width: double.infinity,
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: _isLoading ? null : () => _handleRegister(authService),
+                    onPressed:
+                        _isLoading ? null : () => _handleRegister(authService),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF6750A4),
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                     child: _isLoading
                         ? const SizedBox(
                             height: 20,
                             width: 20,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                                color: Colors.white, strokeWidth: 2),
                           )
-                        : const Text('REGISTRARSE', style: TextStyle(fontWeight: FontWeight.bold)),
+                        : const Text('Registrarse',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -239,7 +253,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     Expanded(child: Divider()),
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Text('O regístrate rápido con', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                      child: Text('O regístrate rápido con',
+                          style: TextStyle(color: Colors.grey, fontSize: 12)),
                     ),
                     Expanded(child: Divider()),
                   ],

@@ -1,11 +1,86 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:urbi_connect/models/incident.dart';
 import 'package:urbi_connect/models/notification.dart';
+import 'package:urbi_connect/models/user_profile.dart';
+import 'package:urbi_connect/screens/incidents/chat_screen.dart';
+import 'package:urbi_connect/screens/incidents/incident_detail_screen.dart';
+import 'package:urbi_connect/screens/incidents/responsible_incident_detail_screen.dart';
 import 'package:urbi_connect/services/notification_service.dart';
 
 class NotificationListScreen extends StatelessWidget {
   const NotificationListScreen({super.key});
+
+  Future<void> _handleNotificationTap(
+      BuildContext context, AppNotification notification) async {
+    final notificationService = NotificationService();
+    if (!notification.isRead) {
+      await notificationService.markAsRead(notification.id);
+    }
+
+    if (notification.referenceId == null || notification.referenceId!.isEmpty) {
+      return;
+    }
+
+    try {
+      if (notification.type == 'chat') {
+        if (context.mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) =>
+                  ChatScreen(incidentId: notification.referenceId!),
+            ),
+          );
+        }
+      } else if (notification.type == 'incidencia' ||
+          notification.type == 'recordatorio' ||
+          notification.type == 'incidencia_eliminada') {
+        // Obtener la incidencia y el perfil del usuario para saber a qué pantalla ir
+        final incidentDoc = await FirebaseFirestore.instance
+            .collection('Incidencia')
+            .doc(notification.referenceId)
+            .get();
+        if (!incidentDoc.exists) return;
+
+        final incident = Incident.fromFirestore(incidentDoc);
+        final user = FirebaseAuth.instance.currentUser;
+        if (user == null) return;
+
+        final profileDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        if (!profileDoc.exists) return;
+
+        final profile = UserProfile.fromMap(profileDoc.data()!, user.uid);
+
+        if (context.mounted) {
+          if (profile.role == 'Responsable' ||
+              profile.role == 'Responsable Municipal') {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    ResponsibleIncidentDetailScreen(incident: incident),
+              ),
+            );
+          } else {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => IncidentDetailScreen(incident: incident),
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error al navegar desde notificación: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -76,11 +151,7 @@ class NotificationListScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-                onTap: () {
-                  if (!notification.isRead) {
-                    notificationService.markAsRead(notification.id);
-                  }
-                },
+                onTap: () => _handleNotificationTap(context, notification),
               ),
             );
           },

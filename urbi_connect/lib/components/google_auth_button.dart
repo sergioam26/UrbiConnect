@@ -42,8 +42,12 @@ class _GoogleAuthButtonState extends State<GoogleAuthButton> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
             : Image.network(
-                'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_"G"_logo.svg/1200px-Google_"G"_logo.svg.png',
+                'https://www.gstatic.com/images/branding/product/2x/googleg_96dp.png',
                 height: 24,
+                errorBuilder: (context, error, stackTrace) => const Icon(
+                    Icons.account_circle,
+                    size: 24,
+                    color: Colors.blue),
               ),
         label:
             Text(widget.label, style: const TextStyle(color: Colors.black87)),

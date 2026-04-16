@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:urbi_connect/models/user_profile.dart';
 import 'package:urbi_connect/services/auth_service.dart';
 import 'package:urbi_connect/services/database_service.dart';
-import 'package:urbi_connect/services/notification_service.dart';
 
 import 'admin/category_management_screen.dart';
 import 'admin/user_management_screen.dart';
@@ -22,12 +21,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    NotificationService().initNotifications();
-  }
 
   List<Widget> _getPages(bool isAdmin) {
     if (isAdmin) {
@@ -117,22 +110,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 icon: Icon(isAdmin ? Icons.admin_panel_settings : Icons.home),
                 label: isAdmin ? 'Admin' : 'Inicio',
               ),
-              BottomNavigationBarItem(
-                icon: StreamBuilder<int>(
-                  stream: NotificationService().getUnreadCount(user.uid),
-                  builder: (context, snapshot) {
-                    final count = snapshot.data ?? 0;
-                    if (count > 0) {
-                      return Badge(
-                        label: Text(count.toString()),
-                        child: const Icon(Icons.notifications),
-                      );
-                    }
-                    return const Icon(Icons.notifications);
-                  },
-                ),
-                label: 'Buzón',
-              ),
+              const BottomNavigationBarItem(
+                  icon: Icon(Icons.notifications), label: 'Buzón'),
               const BottomNavigationBarItem(
                   icon: Icon(Icons.person), label: 'Perfil'),
             ],
@@ -203,7 +182,7 @@ class AdminDashboard extends StatelessWidget {
         contentPadding:
             const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         leading: CircleAvatar(
-          backgroundColor: color.withValues(alpha: 0.1),
+          backgroundColor: color.withOpacity(0.1),
           child: Icon(icon, color: color),
         ),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),

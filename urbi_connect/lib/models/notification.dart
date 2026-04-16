@@ -7,6 +7,8 @@ class AppNotification {
   final DateTime createdAt;
   final bool isRead;
   final String userId;
+  final String? referenceId;
+  final String? type;
 
   AppNotification({
     required this.id,
@@ -15,6 +17,8 @@ class AppNotification {
     required this.createdAt,
     required this.isRead,
     required this.userId,
+    this.referenceId,
+    this.type,
   });
 
   factory AppNotification.fromFirestore(DocumentSnapshot doc) {
@@ -23,9 +27,13 @@ class AppNotification {
       id: doc.id,
       title: data['titulo'] ?? '',
       body: data['mensaje'] ?? '',
-      createdAt: (data['fecha_creacion'] as Timestamp).toDate(),
+      createdAt: data['fecha_creacion'] != null
+          ? (data['fecha_creacion'] as Timestamp).toDate()
+          : DateTime.now(),
       isRead: data['leido'] ?? false,
       userId: data['id_usuario'] ?? '',
+      referenceId: data['id_referencia'],
+      type: data['tipo'],
     );
   }
 
@@ -36,6 +44,8 @@ class AppNotification {
       'fecha_creacion': createdAt,
       'leido': isRead,
       'id_usuario': userId,
+      'id_referencia': referenceId,
+      'tipo': type,
     };
   }
 }

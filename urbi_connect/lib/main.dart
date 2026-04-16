@@ -85,11 +85,11 @@ class AuthWrapper extends StatelessWidget {
                           await user.reload();
                           // El StreamBuilder se reconstruirá solo si el estado cambia
                         },
-                        child: const Text('YA LO HE VERIFICADO'),
+                        child: const Text('Ya lo he verificado'),
                       ),
                       TextButton(
                         onPressed: () => authService.signOut(),
-                        child: const Text('Cerrar Sesión'),
+                        child: const Text('Cerrar sesión'),
                       ),
                     ],
                   ),

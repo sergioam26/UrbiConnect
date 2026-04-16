@@ -10,6 +10,7 @@ class Incident {
   final String status; // 'pendiente', 'en proceso', 'resuelta'
   final String userId;
   final String categoryId;
+  final DateTime? lastReminderAt;
 
   Incident({
     required this.id,
@@ -21,6 +22,7 @@ class Incident {
     required this.status,
     required this.userId,
     required this.categoryId,
+    this.lastReminderAt,
   });
 
   factory Incident.fromFirestore(DocumentSnapshot doc) {
@@ -37,6 +39,9 @@ class Incident {
       status: data['estado'] ?? 'pendiente',
       userId: data['id_usuario'] ?? '',
       categoryId: data['id_categoria'] ?? '',
+      lastReminderAt: data['ultimo_recordatorio'] != null
+          ? (data['ultimo_recordatorio'] as Timestamp).toDate()
+          : null,
     );
   }
 
@@ -50,6 +55,7 @@ class Incident {
       'estado': status,
       'id_usuario': userId,
       'id_categoria': categoryId,
+      'ultimo_recordatorio': lastReminderAt,
     };
   }
 }
