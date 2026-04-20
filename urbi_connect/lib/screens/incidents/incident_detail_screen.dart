@@ -107,35 +107,41 @@ class IncidentDetailScreen extends StatelessWidget {
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
-                  Container(
-                    height: 200,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey[300]!),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: GoogleMap(
-                        initialCameraPosition: CameraPosition(
-                          target: LatLng(incident.latitude, incident.longitude),
-                          zoom: 15,
-                        ),
-                        markers: {
-                          Marker(
-                            markerId: const MarkerId('incident_loc'),
-                            position:
-                                LatLng(incident.latitude, incident.longitude),
-                            infoWindow: InfoWindow(title: incident.categoryId),
-                          ),
-                        },
-                        liteModeEnabled:
-                            true, // Optimizado para listas/detalles
-                        scrollGesturesEnabled: false,
-                        zoomGesturesEnabled: false,
+                  if (incident.latitude != 0 && incident.longitude != 0)
+                    Container(
+                      height: 200,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                    ),
-                  ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: GoogleMap(
+                          initialCameraPosition: CameraPosition(
+                            target:
+                                LatLng(incident.latitude, incident.longitude),
+                            zoom: 15,
+                          ),
+                          markers: {
+                            Marker(
+                              markerId: const MarkerId('incident_loc'),
+                              position:
+                                  LatLng(incident.latitude, incident.longitude),
+                              infoWindow:
+                                  InfoWindow(title: incident.categoryId),
+                            ),
+                          },
+                          //liteModeEnabled: true, // Desactivado temporalmente para evitar crashes nativos reportados
+                          scrollGesturesEnabled: true,
+                          zoomGesturesEnabled: true,
+                          myLocationButtonEnabled: false,
+                          mapToolbarEnabled: true,
+                        ),
+                      ),
+                    )
+                  else
+                    const Center(child: Text('Ubicación no disponible')),
                   const SizedBox(height: 24),
                   const Divider(),
                   const SizedBox(height: 16),
@@ -260,7 +266,7 @@ class IncidentDetailScreen extends StatelessWidget {
 
   Widget _buildStatusChip(String status) {
     Color color;
-    switch (status) {
+    switch (status.toLowerCase()) {
       case 'pendiente':
         color = Colors.orange;
         break;
@@ -273,13 +279,22 @@ class IncidentDetailScreen extends StatelessWidget {
       default:
         color = Colors.grey;
     }
-    return Chip(
-      label: Text(
+    return Container(
+      width: 100, // Fixed width for harmony
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      alignment: Alignment.center,
+      child: Text(
         status[0].toUpperCase() + status.substring(1),
         style: const TextStyle(
-            color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
       ),
-      backgroundColor: color,
     );
   }
 }

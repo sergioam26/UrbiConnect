@@ -26,7 +26,13 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    NotificationService().initNotifications();
+    _initNotifications();
+  }
+
+  Future<void> _initNotifications() async {
+    final notificationService = NotificationService();
+    await notificationService.initNotifications();
+    await notificationService.updateTokenInFirestore();
   }
 
   List<Widget> _getPages(bool isAdmin) {

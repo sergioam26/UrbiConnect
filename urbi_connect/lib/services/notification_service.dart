@@ -13,17 +13,40 @@ class NotificationService {
 
   // Inicializar notificaciones push
   Future<void> initNotifications() async {
+    // Configuración para Android
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'high_importance_channel', // id
+      'UrbiConnect Notificaciones', // title
+      description:
+          'Este canal se usa para notificaciones importantes.', // description
+      importance: Importance.max,
+    );
+
+    // Crear el canal en el dispositivo
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+
     // Configuración para notificaciones locales (primer plano)
-    final AndroidInitializationSettings initializationSettingsAndroid =
+    const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
-    final InitializationSettings initializationSettings =
+    const InitializationSettings initializationSettings =
         InitializationSettings(android: initializationSettingsAndroid);
-    await _localNotifications.initialize(initializationSettings);
+
+    await _localNotifications.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        // Aquí podrías manejar el clic en la notificación local
+        debugPrint('Notificación local clickeada: ${response.payload}');
+      },
+    );
 
     NotificationSettings settings = await _fcm.requestPermission(
       alert: true,
       badge: true,
       sound: true,
+      provisional: false,
     );
 
     if (settings.authorizationStatus == AuthorizationStatus.authorized) {
@@ -52,7 +75,7 @@ class NotificationService {
           NotificationDetails(
             android: AndroidNotificationDetails(
               'high_importance_channel',
-              'High Importance Notifications',
+              'UrbiConnect Notificaciones',
               importance: Importance.max,
               priority: Priority.high,
               icon: '@mipmap/ic_launcher',
@@ -62,8 +85,42 @@ class NotificationService {
       }
     });
 
+    // Intentar actualizar el token si el usuario ya está logueado
+    await updateTokenInFirestore();
+
     // Limpiar notificaciones antiguas
     _deleteOldNotifications();
+  }
+
+  // Actualizar el token del dispositivo en Firestore
+  Future<void> updateTokenInFirestore() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        NotificationSettings settings = await _fcm.getNotificationSettings();
+        if (settings.authorizationStatus == AuthorizationStatus.notDetermined) {
+          settings = await _fcm.requestPermission();
+        }
+
+        if (settings.authorizationStatus == AuthorizationStatus.authorized ||
+            settings.authorizationStatus == AuthorizationStatus.provisional) {
+          // FORZAMOS LA REGENERACIÓN DEL TOKEN
+          // Borramos el token actual para obligar a Firebase a darnos uno nuevo y válido
+          await _fcm.deleteToken();
+
+          String? token = await _fcm.getToken();
+          if (token != null) {
+            await _db.collection('users').doc(user.uid).set({
+              'fcm_token': token,
+              'last_token_update': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true));
+            debugPrint('NUEVO FCM Token generado y guardado para ${user.uid}');
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error al actualizar fcm_token: $e');
+    }
   }
 
   // Eliminar notificaciones de más de 2 semanas

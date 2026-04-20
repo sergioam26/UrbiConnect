@@ -165,7 +165,7 @@ class IncidentListScreen extends StatelessWidget {
 
   Widget _buildStatusChip(String status) {
     Color color;
-    switch (status) {
+    switch (status.toLowerCase()) {
       case 'pendiente':
         color = Colors.orange;
         break;
@@ -178,12 +178,22 @@ class IncidentListScreen extends StatelessWidget {
       default:
         color = Colors.grey;
     }
-    return Chip(
-      label: Text(
-        status[0].toUpperCase() + status.substring(1),
-        style: const TextStyle(color: Colors.white, fontSize: 12),
+    return Container(
+      width: 100, // Fixed width for harmony
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(20),
       ),
-      backgroundColor: color,
+      alignment: Alignment.center,
+      child: Text(
+        status[0].toUpperCase() + status.substring(1),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 }
