@@ -163,7 +163,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 NavigationDestination(
                   icon: Icon(isAdmin
                       ? Icons.admin_panel_settings_outlined
-                      : Icons.home_rounded),
+                      : Icons.home_outlined),
                   selectedIcon: Icon(
                       isAdmin ? Icons.admin_panel_settings : Icons.home_rounded,
                       color: Theme.of(context).colorScheme.primary),
