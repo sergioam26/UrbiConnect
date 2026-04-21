@@ -6,6 +6,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:urbi_connect/models/incident.dart';
 import 'package:urbi_connect/screens/incidents/chat_screen.dart';
+import 'package:urbi_connect/screens/incidents/incident_edit_screen.dart';
 import 'package:urbi_connect/services/database_service.dart';
 
 class IncidentDetailScreen extends StatelessWidget {
@@ -103,6 +104,45 @@ class IncidentDetailScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
                   const Text(
+                    'Reportado por:',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  FutureBuilder<DocumentSnapshot>(
+                    future: FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(incident.userId)
+                        .get(),
+                    builder: (context, userSnap) {
+                      if (userSnap.connectionState == ConnectionState.waiting) {
+                        return const Text('Cargando reportero...');
+                      }
+                      if (!userSnap.hasData || !userSnap.data!.exists) {
+                        return Text(incident.userId,
+                            style: const TextStyle(color: Colors.grey));
+                      }
+
+                      final userData =
+                          userSnap.data!.data() as Map<String, dynamic>;
+                      final String name = userData['nombre'] ?? '';
+                      final String surnames = userData['apellidos'] ?? '';
+                      final String username = userData['usuario'] ?? '';
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('$name $surnames',
+                              style: const TextStyle(
+                                  fontSize: 15, fontWeight: FontWeight.w500)),
+                          Text('@$username',
+                              style: TextStyle(
+                                  fontSize: 13, color: Colors.grey[600])),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
                     'Ubicación:',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
@@ -193,6 +233,26 @@ class IncidentDetailScreen extends StatelessWidget {
                   if (FirebaseAuth.instance.currentUser?.uid ==
                       incident.userId) ...[
                     const SizedBox(height: 8),
+                    ListTile(
+                      leading: const Icon(Icons.edit_note_rounded,
+                          color: Colors.blue),
+                      title: const Text('Editar incidencia'),
+                      onTap: () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) =>
+                                  IncidentEditScreen(incident: incident)),
+                        );
+                        if (result == true) {
+                          // Opcional: recargar datos o simplemente volver.
+                          // Como pasamos el objeto Incident, para ver cambios en vivo
+                          // en esta pantalla necesitaríamos un State o un Stream.
+                          // Por ahora, cerramos para que se vea en la lista.
+                          if (context.mounted) Navigator.pop(context);
+                        }
+                      },
+                    ),
                     ListTile(
                       leading:
                           const Icon(Icons.delete_forever, color: Colors.red),

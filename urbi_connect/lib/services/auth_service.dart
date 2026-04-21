@@ -188,4 +188,60 @@ class AuthService with ChangeNotifier {
     await _googleSignIn.signOut();
     await _auth.signOut();
   }
+
+  // Change password
+  Future<String?> changePassword(
+      String currentPassword, String newPassword) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return 'No hay usuario autenticado';
+
+      // Re-autenticar al usuario
+      AuthCredential credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: currentPassword,
+      );
+      await user.reauthenticateWithCredential(credential);
+
+      // Actualizar contraseña
+      await user.updatePassword(newPassword);
+      return null; // Éxito
+    } on FirebaseAuthException catch (e) {
+      switch (e.code) {
+        case 'wrong-password':
+          return 'La contraseña actual es incorrecta.';
+        case 'requires-recent-login':
+          return 'Esta operación requiere que vuelvas a iniciar sesión.';
+        case 'weak-password':
+          return 'La nueva contraseña es demasiado débil.';
+        case 'user-not-found':
+          return 'Usuario no encontrado.';
+        case 'invalid-credential':
+          return 'Las credenciales proporcionadas son incorrectas o han caducado.';
+        default:
+          return 'Ocurrió un error en la autenticación: ${e.message}';
+      }
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  // Update profile
+  Future<String?> updateProfile({
+    required String uid,
+    required String name,
+    required String surnames,
+    required String username,
+  }) async {
+    try {
+      await _db.collection('users').doc(uid).update({
+        'nombre': name,
+        'apellidos': surnames,
+        'usuario': username,
+      });
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
 }

@@ -65,7 +65,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       appBar: AppBar(
         title: const Text('Registro'),
         backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF6750A4),
+        foregroundColor: const Color(0xFF0F172A),
         elevation: 0,
       ),
       body: Center(
@@ -75,12 +75,52 @@ class _RegisterScreenState extends State<RegisterScreen> {
             key: _formKey,
             child: Column(
               children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    height: 100,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'UrbiConnect',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF0F172A),
+                    letterSpacing: -1,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Gestión de incidencias y comunicación con tu ayuntamiento',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 const Text(
                   'Crea tu cuenta',
                   style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF6750A4),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF0F172A),
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -167,7 +207,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         _obscurePassword
                             ? Icons.visibility_off
                             : Icons.visibility,
-                        color: const Color(0xFF6750A4),
+                        color: const Color(0xFF0F172A),
                       ),
                       onPressed: () {
                         setState(() {
@@ -202,7 +242,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         _obscureConfirmPassword
                             ? Icons.visibility_off
                             : Icons.visibility,
-                        color: const Color(0xFF6750A4),
+                        color: const Color(0xFF0F172A),
                       ),
                       onPressed: () {
                         setState(() {
@@ -231,7 +271,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     onPressed:
                         _isLoading ? null : () => _handleRegister(authService),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF6750A4),
+                      backgroundColor: const Color(0xFF0F172A),
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),

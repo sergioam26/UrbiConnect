@@ -84,6 +84,21 @@ class _ChatScreenState extends State<ChatScreen> {
                           sender: msg.senderId == _currentUserId
                               ? 'Tú'
                               : senderName,
+                          avatarUrl: (userSnapshot.hasData &&
+                                  userSnapshot.data!.exists)
+                              ? (userSnapshot.data!.data()
+                                  as Map<String, dynamic>)['foto_perfil']
+                              : null,
+                          onAvatarTap: () {
+                            if (userSnapshot.hasData &&
+                                userSnapshot.data!.exists) {
+                              _showUserProfile(
+                                  context,
+                                  msg.senderId,
+                                  userSnapshot.data!.data()
+                                      as Map<String, dynamic>);
+                            }
+                          },
                         );
                       },
                     );
@@ -140,55 +155,120 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
     );
   }
+
+  void _showUserProfile(
+      BuildContext context, String userId, Map<String, dynamic> userData) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 40,
+              backgroundImage: userData['foto_perfil'] != null
+                  ? NetworkImage(userData['foto_perfil'])
+                  : null,
+              child: userData['foto_perfil'] == null
+                  ? const Icon(Icons.person, size: 40)
+                  : null,
+            ),
+            const SizedBox(height: 16),
+            Text(userData['nombre'] ?? 'Usuario',
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('@${userData['usuario'] ?? ''}',
+                style: const TextStyle(color: Colors.grey)),
+            const SizedBox(height: 8),
+            Text(userData['email'] ?? '', style: const TextStyle(fontSize: 12)),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cerrar')),
+        ],
+      ),
+    );
+  }
 }
 
 class ChatBubble extends StatelessWidget {
   final String message;
   final bool isMe;
   final String sender;
+  final String? avatarUrl;
+  final VoidCallback onAvatarTap;
 
-  const ChatBubble(
-      {super.key,
-      required this.message,
-      required this.isMe,
-      required this.sender});
+  const ChatBubble({
+    super.key,
+    required this.message,
+    required this.isMe,
+    required this.sender,
+    this.avatarUrl,
+    required this.onAvatarTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(12),
-        constraints:
-            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
-        decoration: BoxDecoration(
-          color: isMe ? const Color(0xFF6750A4) : Colors.grey[200],
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(12),
-            topRight: const Radius.circular(12),
-            bottomLeft: isMe ? const Radius.circular(12) : Radius.zero,
-            bottomRight: isMe ? Radius.zero : const Radius.circular(12),
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              sender,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: isMe ? Colors.white70 : Colors.black54,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!isMe) ...[
+            GestureDetector(
+              onTap: onAvatarTap,
+              child: CircleAvatar(
+                radius: 16,
+                backgroundImage:
+                    avatarUrl != null ? NetworkImage(avatarUrl!) : null,
+                child: avatarUrl == null
+                    ? const Icon(Icons.person, size: 16)
+                    : null,
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              message,
-              style: TextStyle(color: isMe ? Colors.white : Colors.black87),
-            ),
+            const SizedBox(width: 8),
           ],
-        ),
+          Flexible(
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(12),
+              constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.65),
+              decoration: BoxDecoration(
+                color: isMe ? const Color(0xFF6750A4) : Colors.grey[200],
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(16),
+                  topRight: const Radius.circular(16),
+                  bottomLeft: isMe ? const Radius.circular(16) : Radius.zero,
+                  bottomRight: isMe ? Radius.zero : const Radius.circular(16),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    sender,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: isMe ? Colors.white70 : Colors.black54,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    message,
+                    style:
+                        TextStyle(color: isMe ? Colors.white : Colors.black87),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

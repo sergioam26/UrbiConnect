@@ -226,6 +226,34 @@ class DatabaseService {
     }
   }
 
+  // Actualizar incidencia
+  Future<void> updateIncident(Incident incident) async {
+    final data = incident.toMap();
+    await _db.collection('Incidencia').doc(incident.id).update(data);
+
+    // Notificar a los responsables
+    try {
+      final responsables = await _db
+          .collection('users')
+          .where('rol', whereIn: ['Responsable', 'Responsable Municipal'])
+          .where('id_categorias', arrayContains: incident.categoryId)
+          .get();
+
+      for (var doc in responsables.docs) {
+        await _notificationService.sendNotification(
+          userId: doc.id,
+          title: 'Incidencia editada por ciudadano',
+          body:
+              'La incidencia "${incident.description}" ha sido modificada por el autor.',
+          referenceId: incident.id,
+          type: 'incidencia_editada',
+        );
+      }
+    } catch (e) {
+      debugPrint('Error enviando notificación de edición: $e');
+    }
+  }
+
   // Actualizar rol y categorías de un usuario
   Future<void> updateUserRoleAndCategories(
       String uid, String role, List<String>? categories) {

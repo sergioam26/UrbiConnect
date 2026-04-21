@@ -13,23 +13,75 @@
       content="828754552495-p3ka5ud01ce5770tdgcodpp279qprvo7.apps.googleusercontent.com"
     />
 
-    <!-- iOS meta tags & icons -->
+    <!-- Manifest and Icons -->
+    <link rel="manifest" href="manifest.json" />
     <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
-    <meta name="apple-mobile-web-app-title" content="urbi_connect" />
-    <link rel="apple-touch-icon" href="icons/Icon-192.png" />
+    <meta name="apple-mobile-web-app-title" content="UrbiConnect" />
 
-    <link rel="icon" type="image/png" href="favicon.png" />
+    <link rel="apple-touch-icon" href="assets/images/favicon.png" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="assets/images/favicon.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="assets/images/favicon.png"
+    />
+    <link
+      rel="shortcut icon"
+      href="assets/images/favicon.png"
+      type="image/x-icon"
+    />
 
     <title>UrbiConnect</title>
-    <link rel="manifest" href="manifest.json" />
+
+    <!-- Script para redondear el favicon dinámicamente -->
+    <script>
+      window.addEventListener("load", () => {
+        const iconLinks = document.querySelectorAll("link[rel*='icon']");
+        const img = new Image();
+        img.src = "assets/images/favicon.png";
+        img.crossOrigin = "anonymous";
+
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const size = 128; // Resolución interna para el favicon
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext("2d");
+
+          // Dibujar círculo
+          ctx.beginPath();
+          ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+          ctx.closePath();
+          ctx.clip();
+
+          // Dibujar la imagen dentro del círculo
+          ctx.drawImage(img, 0, 0, size, size);
+
+          const roundedDataUrl = canvas.toDataURL("image/png");
+
+          // Actualizar todas las etiquetas de icono existentes
+          iconLinks.forEach((link) => {
+            link.href = roundedDataUrl;
+          });
+        };
+      });
+    </script>
+
     <link
       href="https://fonts.googleapis.com/icon?family=Material+Icons"
       rel="stylesheet"
     />
 
     <!-- Script de Google Maps -->
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDQcXzje_ac4nrb2W5J-k2fep5_jXRIDfs"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=TU_CLAVE_AQUI"></script>
   </head>
   <body>
     <!-- Scripts de Firebase corregidos -->

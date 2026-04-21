@@ -250,7 +250,7 @@ class _IncidentFormScreenState extends State<IncidentFormScreen> {
               content: Text(errorMsg),
               duration: const Duration(seconds: 10),
               action: SnackBarAction(
-                label: 'CERRAR',
+                label: 'Cerrar',
                 onPressed: () {},
               ),
             ),
@@ -468,7 +468,7 @@ class _IncidentFormScreenState extends State<IncidentFormScreen> {
                       child: ElevatedButton(
                         onPressed: _submitForm,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF6750A4),
+                          backgroundColor: const Color(0xFF0F172A),
                           foregroundColor: Colors.white,
                         ),
                         child: const Text('Enviar incidencia',

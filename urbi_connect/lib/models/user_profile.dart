@@ -17,6 +17,9 @@ class UserProfile {
     this.pushToken,
   });
 
+  String get username =>
+      name; // Getter for username as requested by diagnostics
+
   factory UserProfile.fromMap(Map<String, dynamic> data, String uid) {
     List<String>? categories;
     if (data['id_categorias'] != null) {
