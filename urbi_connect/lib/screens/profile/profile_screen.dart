@@ -21,22 +21,30 @@ class ProfileScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildHeader(context, user),
-            const SizedBox(height: 12),
-            _buildInfoSection(context, user),
-            const SizedBox(height: 12),
-            _buildSettingsSection(context, authService),
-            const SizedBox(height: 32),
-          ],
-        ),
-      ),
+      body: StreamBuilder<UserProfile?>(
+          stream: DatabaseService().getUserProfile(user?.uid ?? ''),
+          builder: (context, snapshot) {
+            final profile = snapshot.data;
+
+            return SingleChildScrollView(
+              child: Column(
+                children: [
+                  _buildHeader(context, user, profile),
+                  const SizedBox(height: 12),
+                  _buildInfoSection(context, user, profile),
+                  const SizedBox(height: 12),
+                  _buildSettingsSection(context, authService),
+                  const SizedBox(height: 32),
+                ],
+              ),
+            );
+          }),
     );
   }
 
-  Widget _buildHeader(BuildContext context, User? user) {
+  Widget _buildHeader(BuildContext context, User? user, UserProfile? profile) {
+    final photoUrl = profile?.profilePhoto ?? user?.photoURL;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.only(top: 80, bottom: 48, left: 24, right: 24),
@@ -66,9 +74,8 @@ class ProfileScreen extends StatelessWidget {
             child: CircleAvatar(
               radius: 56,
               backgroundColor: Colors.white,
-              backgroundImage:
-                  user?.photoURL != null ? NetworkImage(user!.photoURL!) : null,
-              child: user?.photoURL == null
+              backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
+              child: photoUrl == null
                   ? Icon(Icons.person_rounded,
                       size: 56, color: Theme.of(context).colorScheme.primary)
                   : null,
@@ -76,7 +83,9 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           Text(
-            user?.displayName ?? 'Ciudadano de Cantillana',
+            profile != null
+                ? '${profile.name} ${profile.surnames}'
+                : (user?.displayName ?? 'Ciudadano'),
             textAlign: TextAlign.center,
             style: GoogleFonts.montserrat(
               color: Colors.white,
@@ -92,7 +101,7 @@ class ProfileScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
-              user?.email ?? '',
+              profile?.email ?? (user?.email ?? ''),
               style: GoogleFonts.inter(
                 color: Colors.white.withValues(alpha: 0.8),
                 fontSize: 12,
@@ -106,73 +115,65 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoSection(BuildContext context, User? user) {
-    return StreamBuilder<UserProfile?>(
-      stream: DatabaseService().getUserProfile(user?.uid ?? ''),
-      builder: (context, snapshot) {
-        final profile = snapshot.data;
-        final isResponsible = profile?.role == 'Responsable' ||
-            profile?.role == 'Responsable Municipal';
+  Widget _buildInfoSection(
+      BuildContext context, User? user, UserProfile? profile) {
+    final isResponsible = profile?.role == 'Responsable' ||
+        profile?.role == 'Responsable Municipal';
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 8, bottom: 12, top: 24),
-                child: Text(
-                  'Información personal',
-                  style: GoogleFonts.inter(
-                    color: const Color(0xFF94A3B8),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.5,
-                  ),
-                ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 8, bottom: 12, top: 24),
+            child: Text(
+              'Información personal',
+              style: GoogleFonts.inter(
+                color: const Color(0xFF94A3B8),
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.5,
               ),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Column(
-                  children: [
-                    _buildModernTile(
-                        context,
-                        Icons.alternate_email_rounded,
-                        'Usuario',
-                        profile?.username ??
-                            (user?.email?.split('@')[0] ?? '-')),
-                    _buildDivider(),
-                    _buildModernTile(context, Icons.verified_user_rounded,
-                        'Rol', profile?.role ?? 'Ciudadano'),
-                    _buildDivider(),
-                    _buildModernTile(
-                      context,
-                      Icons.verified_rounded,
-                      'Cuenta',
-                      user?.emailVerified == true
-                          ? 'Verificada'
-                          : 'No verificada',
-                      valueColor: user?.emailVerified == true
-                          ? const Color(0xFF059669)
-                          : Colors.orange[600],
-                    ),
-                    if (isResponsible &&
-                        profile?.categories != null &&
-                        profile!.categories!.isNotEmpty) ...[
-                      _buildDivider(),
-                      _buildResponsibleCategories(context, profile.categories!),
-                    ],
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
-        );
-      },
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Column(
+              children: [
+                _buildModernTile(
+                    context,
+                    Icons.alternate_email_rounded,
+                    'Usuario',
+                    profile?.username ?? (user?.email?.split('@')[0] ?? '-')),
+                _buildDivider(),
+                _buildModernTile(context, Icons.verified_user_rounded, 'Rol',
+                    profile?.role ?? 'Ciudadano'),
+                _buildDivider(),
+                _buildModernTile(
+                  context,
+                  Icons.verified_rounded,
+                  'Cuenta',
+                  user?.emailVerified == true ? 'Verificada' : 'No verificada',
+                  valueColor: user?.emailVerified == true
+                      ? const Color(0xFF059669)
+                      : Colors.orange[600],
+                ),
+                if (isResponsible &&
+                    profile?.categories != null &&
+                    profile!.categories!.isNotEmpty) ...[
+                  _buildDivider(),
+                  _buildResponsibleCategories(context, profile.categories!),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

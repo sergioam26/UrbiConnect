@@ -25,6 +25,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _handleRegister(AuthService authService) async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
+
+      // Check username availability
+      final isAvailable =
+          await authService.isUsernameAvailable(_usernameController.text);
+      if (!isAvailable) {
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content:
+                  Text('El nombre de usuario ya está en uso. Elige otro.')),
+        );
+        return;
+      }
+
       final user = await authService.register(
         email: _emailController.text,
         password: _passwordController.text,
@@ -89,7 +104,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ],
                   ),
                   child: Image.asset(
-                    'assets/images/logo.png',
+                    'assets/images/favicon.png',
                     height: 100,
                     fit: BoxFit.contain,
                   ),

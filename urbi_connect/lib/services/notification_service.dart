@@ -13,6 +13,11 @@ class NotificationService {
 
   // Inicializar notificaciones push
   Future<void> initNotifications() async {
+    if (kIsWeb) {
+      debugPrint('Notificaciones Push desactivadas en Web.');
+      return;
+    }
+
     // Configuración para Android
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
       'high_importance_channel', // id
@@ -94,6 +99,7 @@ class NotificationService {
 
   // Actualizar el token del dispositivo en Firestore
   Future<void> updateTokenInFirestore() async {
+    if (kIsWeb) return;
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {

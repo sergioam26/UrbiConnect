@@ -62,9 +62,13 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authService = Provider.of<AuthService>(context);
+    final hasPassword = authService.hasPassword;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Seguridad'),
+        title:
+            Text(hasPassword ? 'Cambiar contraseña' : 'Establecer contraseña'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -74,24 +78,28 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Cambia tu contraseña para mantener tu cuenta segura',
+                hasPassword
+                    ? 'Cambia tu contraseña para mantener tu cuenta segura'
+                    : 'Crea una contraseña para tu cuenta de UrbiConnect. Podrás usarla junto a tu usuario o email para iniciar sesión en cualquier dispositivo.',
                 style: Theme.of(context)
                     .textTheme
                     .bodyMedium
-                    ?.copyWith(color: Colors.grey),
+                    ?.copyWith(color: Colors.grey, height: 1.5),
               ),
               const SizedBox(height: 32),
+              if (hasPassword) ...[
+                _buildPasswordField(
+                  label: 'Contraseña actual',
+                  controller: _currentPasswordController,
+                  obscure: _obscureCurrent,
+                  onToggle: () =>
+                      setState(() => _obscureCurrent = !_obscureCurrent),
+                  textInputAction: TextInputAction.next,
+                ),
+                const SizedBox(height: 24),
+              ],
               _buildPasswordField(
-                label: 'Contraseña actual',
-                controller: _currentPasswordController,
-                obscure: _obscureCurrent,
-                onToggle: () =>
-                    setState(() => _obscureCurrent = !_obscureCurrent),
-                textInputAction: TextInputAction.next,
-              ),
-              const SizedBox(height: 24),
-              _buildPasswordField(
-                label: 'Nueva contraseña',
+                label: hasPassword ? 'Nueva contraseña' : 'Contraseña',
                 controller: _newPasswordController,
                 obscure: _obscureNew,
                 onToggle: () => setState(() => _obscureNew = !_obscureNew),
@@ -100,7 +108,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               ),
               const SizedBox(height: 20),
               _buildPasswordField(
-                label: 'Confirmar nueva contraseña',
+                label: 'Confirmar contraseña',
                 controller: _confirmPasswordController,
                 obscure: _obscureConfirm,
                 onToggle: () =>
@@ -120,8 +128,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   ),
                   child: _isLoading
                       ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('Actualizar contraseña',
-                          style: TextStyle(
+                      : Text(
+                          hasPassword
+                              ? 'Actualizar contraseña'
+                              : 'Establecer contraseña',
+                          style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ),

@@ -3,7 +3,9 @@ class UserProfile {
   final String name;
   final String surnames;
   final String email;
+  final String username;
   final String role; // 'Ciudadano', 'Responsable', 'Admin'
+  final String? profilePhoto;
   final List<String>? categories; // Para responsables
   final String? pushToken;
 
@@ -12,13 +14,12 @@ class UserProfile {
     required this.name,
     required this.surnames,
     required this.email,
+    required this.username,
     required this.role,
+    this.profilePhoto,
     this.categories,
     this.pushToken,
   });
-
-  String get username =>
-      name; // Getter for username as requested by diagnostics
 
   factory UserProfile.fromMap(Map<String, dynamic> data, String uid) {
     List<String>? categories;
@@ -33,7 +34,9 @@ class UserProfile {
       name: data['nombre'] ?? '',
       surnames: data['apellidos'] ?? '',
       email: data['email'] ?? '',
+      username: data['usuario'] ?? '',
       role: data['rol'] ?? 'Ciudadano',
+      profilePhoto: data['foto_perfil'],
       categories: categories,
       pushToken: data['token_push'],
     );
@@ -44,7 +47,9 @@ class UserProfile {
       'nombre': name,
       'apellidos': surnames,
       'email': email,
+      'usuario': username,
       'rol': role,
+      'foto_perfil': profilePhoto,
       'id_categorias': categories,
       'token_push': pushToken,
     };

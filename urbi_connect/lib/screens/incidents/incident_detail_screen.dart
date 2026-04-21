@@ -149,7 +149,8 @@ class IncidentDetailScreen extends StatelessWidget {
                   const SizedBox(height: 8),
                   if (incident.latitude != 0 && incident.longitude != 0)
                     Container(
-                      height: 200,
+                      key: ValueKey('map_cont_${incident.id}'),
+                      height: 250,
                       width: double.infinity,
                       decoration: BoxDecoration(
                         border: Border.all(color: Colors.grey[300]!),
@@ -158,6 +159,7 @@ class IncidentDetailScreen extends StatelessWidget {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: GoogleMap(
+                          key: ValueKey('map_${incident.id}'),
                           initialCameraPosition: CameraPosition(
                             target:
                                 LatLng(incident.latitude, incident.longitude),
@@ -172,7 +174,6 @@ class IncidentDetailScreen extends StatelessWidget {
                                   InfoWindow(title: incident.categoryId),
                             ),
                           },
-                          //liteModeEnabled: true, // Desactivado temporalmente para evitar crashes nativos reportados
                           scrollGesturesEnabled: true,
                           zoomGesturesEnabled: true,
                           myLocationButtonEnabled: false,

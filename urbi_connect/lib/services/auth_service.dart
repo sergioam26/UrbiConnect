@@ -1,5 +1,10 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
@@ -189,19 +194,159 @@ class AuthService with ChangeNotifier {
     await _auth.signOut();
   }
 
-  // Change password
-  Future<String?> changePassword(
-      String currentPassword, String newPassword) async {
+  // Check if user has a password set (Email provider)
+  bool get hasPassword {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    return user.providerData.any((p) => p.providerId == 'password');
+  }
+
+  // Check if username is available
+  Future<bool> isUsernameAvailable(String username,
+      {String? excludeUid}) async {
+    final query = await _db
+        .collection('users')
+        .where('usuario', isEqualTo: username)
+        .get();
+
+    if (excludeUid != null) {
+      return query.docs.isEmpty ||
+          (query.docs.length == 1 && query.docs.first.id == excludeUid);
+    }
+    return query.docs.isEmpty;
+  }
+
+  // Check if email is available
+  Future<bool> isEmailAvailable(String email, {String? excludeEmail}) async {
+    // Note: This only checks Firestore, not Firebase Auth directly.
+    // For a more robust check during registration, Auth throws email-already-in-use.
+    final query =
+        await _db.collection('users').where('email', isEqualTo: email).get();
+
+    if (excludeEmail != null) {
+      return query.docs.isEmpty ||
+          (query.docs.length == 1 &&
+              query.docs.first.get('email') == excludeEmail);
+    }
+    return query.docs.isEmpty;
+  }
+
+  // Update profile
+  Future<String?> updateProfile({
+    required String uid,
+    required String name,
+    required String surnames,
+    required String username,
+    String? email,
+    String? currentPassword, // Required for email change
+    String? photoUrl,
+  }) async {
     try {
       final user = _auth.currentUser;
       if (user == null) return 'No hay usuario autenticado';
 
-      // Re-autenticar al usuario
-      AuthCredential credential = EmailAuthProvider.credential(
-        email: user.email!,
-        password: currentPassword,
-      );
-      await user.reauthenticateWithCredential(credential);
+      // 1. Handle Email Change if provided and different
+      if (email != null && email != user.email) {
+        if (currentPassword == null)
+          return 'Se requiere la contraseña para cambiar el email';
+
+        // Re-authenticate
+        AuthCredential credential = EmailAuthProvider.credential(
+          email: user.email!,
+          password: currentPassword,
+        );
+        await user.reauthenticateWithCredential(credential);
+
+        // Update Email in Auth (Modern way sends verification automatically)
+        await user.verifyBeforeUpdateEmail(email);
+        // Note: The email in Firebase Auth won't change until the user clicks the link in their new email.
+      }
+
+      // 2. Update Firestore
+      Map<String, dynamic> updates = {
+        'nombre': name,
+        'apellidos': surnames,
+        'usuario': username,
+      };
+
+      if (email != null) updates['email'] = email;
+      if (photoUrl != null) updates['foto_perfil'] = photoUrl;
+
+      await _db.collection('users').doc(uid).update(updates);
+
+      return null;
+    } on FirebaseAuthException catch (e) {
+      switch (e.code) {
+        case 'email-already-in-use':
+          return 'Este email ya está en uso por otra cuenta.';
+        case 'wrong-password':
+          return 'La contraseña es incorrecta.';
+        case 'requires-recent-login':
+          return 'Esta operación requiere un inicio de sesión reciente.';
+        case 'operation-not-allowed':
+          return 'Esta operación no está permitida. Contacta con soporte.';
+        default:
+          if (e.message?.contains('verify the new email') ?? false) {
+            return 'Por seguridad, debes verificar el nuevo email antes de que el cambio sea efectivo. Se ha enviado un correo.';
+          }
+          return e.message;
+      }
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  // Upload Profile Photo
+  Future<String?> uploadProfilePhoto(String uid,
+      {File? imageFile, Uint8List? imageBytes}) async {
+    try {
+      final storageRef =
+          FirebaseStorage.instance.ref().child('user_photos').child('$uid.jpg');
+
+      if (kIsWeb && imageBytes != null) {
+        await storageRef.putData(imageBytes);
+      } else if (imageFile != null) {
+        await storageRef.putFile(imageFile);
+      } else if (imageBytes != null) {
+        await storageRef.putData(imageBytes);
+      } else {
+        return null;
+      }
+
+      final downloadUrl = await storageRef.getDownloadURL();
+
+      await _db.collection('users').doc(uid).update({
+        'foto_perfil': downloadUrl,
+      });
+
+      return downloadUrl;
+    } catch (e) {
+      debugPrint('Error uploading photo: $e');
+      return null;
+    }
+  }
+
+  // Change password
+  Future<String?> changePassword(
+      String? currentPassword, String newPassword) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return 'No hay usuario autenticado';
+
+      // If user has a password, we MUST re-authenticate
+      if (hasPassword) {
+        if (currentPassword == null || currentPassword.isEmpty) {
+          return 'Se requiere la contraseña actual';
+        }
+        AuthCredential credential = EmailAuthProvider.credential(
+          email: user.email!,
+          password: currentPassword,
+        );
+        await user.reauthenticateWithCredential(credential);
+      } else {
+        // For Google/Social users setting a password for the first time
+        // No current password needed, but updatePassword might still require recent login
+      }
 
       // Actualizar contraseña
       await user.updatePassword(newPassword);
@@ -221,25 +366,6 @@ class AuthService with ChangeNotifier {
         default:
           return 'Ocurrió un error en la autenticación: ${e.message}';
       }
-    } catch (e) {
-      return e.toString();
-    }
-  }
-
-  // Update profile
-  Future<String?> updateProfile({
-    required String uid,
-    required String name,
-    required String surnames,
-    required String username,
-  }) async {
-    try {
-      await _db.collection('users').doc(uid).update({
-        'nombre': name,
-        'apellidos': surnames,
-        'usuario': username,
-      });
-      return null;
     } catch (e) {
       return e.toString();
     }

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:urbi_connect/models/incident.dart';
 import 'package:urbi_connect/screens/incidents/chat_screen.dart';
 import 'package:urbi_connect/services/database_service.dart';
@@ -131,7 +132,77 @@ class _ResponsibleIncidentDetailScreenState
               },
             ),
             _buildDetailRow('Descripción:', widget.incident.description),
-            _buildDetailRow('Reportado por:', widget.incident.userId),
+            const Text('Reportado por:',
+                style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const SizedBox(height: 4),
+            FutureBuilder<DocumentSnapshot>(
+              future: FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(widget.incident.userId)
+                  .get(),
+              builder: (context, userSnap) {
+                if (userSnap.connectionState == ConnectionState.waiting) {
+                  return const Text('Cargando reportero...',
+                      style: TextStyle(fontSize: 16));
+                }
+                if (!userSnap.hasData || !userSnap.data!.exists) {
+                  return Text(widget.incident.userId,
+                      style: const TextStyle(fontSize: 16));
+                }
+
+                final userData = userSnap.data!.data() as Map<String, dynamic>;
+                final String name = userData['nombre'] ?? '';
+                final String surnames = userData['apellidos'] ?? '';
+                final String username = userData['usuario'] ?? '';
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('$name $surnames',
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w500)),
+                    Text('@$username',
+                        style:
+                            TextStyle(fontSize: 14, color: Colors.grey[600])),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+            const Text('Ubicación:',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            if (widget.incident.latitude != 0 && widget.incident.longitude != 0)
+              Container(
+                key: ValueKey('map_cont_resp_${widget.incident.id}'),
+                height: 200,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey[300]!),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: GoogleMap(
+                    key: ValueKey('map_resp_${widget.incident.id}'),
+                    initialCameraPosition: CameraPosition(
+                      target: LatLng(
+                          widget.incident.latitude, widget.incident.longitude),
+                      zoom: 15,
+                    ),
+                    markers: {
+                      Marker(
+                        markerId: const MarkerId('incident_loc'),
+                        position: LatLng(widget.incident.latitude,
+                            widget.incident.longitude),
+                      ),
+                    },
+                  ),
+                ),
+              )
+            else
+              const Text('Ubicación no disponible',
+                  style: TextStyle(color: Colors.grey)),
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
