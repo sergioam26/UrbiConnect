@@ -217,7 +217,7 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
         ),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             if (isAdmin && !isGuest && userId != null) ...[
               _buildUserRoleBadge(userId),
@@ -267,17 +267,17 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
 
   Widget _buildBadge(String text, Color color) {
     return Container(
-      width: 75,
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(8),
       ),
-      child: Center(
-        child: Text(
-          text,
-          style:
-              TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
         ),
       ),
     );
@@ -542,22 +542,12 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
                           title: Row(
                             children: [
                               Expanded(
-                                  child: Text(data['titulo'] ?? 'Sin título',
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15))),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                    color: Colors.indigo,
-                                    borderRadius: BorderRadius.circular(6)),
-                                child: const Text('OFICIAL',
-                                    style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.bold)),
+                                child: Text(data['titulo'] ?? 'Sin título',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15)),
                               ),
+                              _buildBadge('OFICIAL', Colors.indigo),
                             ],
                           ),
                           subtitle: Column(
@@ -590,9 +580,8 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
                                   maxLines: 4,
                                   overflow: TextOverflow.ellipsis),
                               const SizedBox(height: 12),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                       DateFormat('dd/MM/yyyy, HH:mm')
@@ -601,6 +590,7 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
                                           fontSize: 11,
                                           color: Colors.grey[500],
                                           fontWeight: FontWeight.w500)),
+                                  const SizedBox(height: 4),
                                   if (isAdmin &&
                                       type == 'oficial' &&
                                       userId != null)
@@ -622,7 +612,9 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
                                             style: const TextStyle(
                                                 fontSize: 10,
                                                 color: Color(0xFF6366F1),
-                                                fontWeight: FontWeight.bold));
+                                                fontWeight: FontWeight.bold),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis);
                                       },
                                     )
                                   else
@@ -630,7 +622,9 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
                                         style: const TextStyle(
                                             fontSize: 10,
                                             color: Color(0xFF6366F1),
-                                            fontWeight: FontWeight.bold)),
+                                            fontWeight: FontWeight.bold),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis),
                                 ],
                               ),
                             ],

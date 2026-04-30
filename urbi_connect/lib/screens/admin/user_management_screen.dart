@@ -287,6 +287,57 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     final XFile? image = await picker.pickImage(
                         source: ImageSource.gallery, imageQuality: 50);
                     if (image == null) return;
+
+                    // Validación de tipo de archivo mejorada
+                    final String fileName = image.name.toLowerCase();
+                    final String? mimeType = image.mimeType?.toLowerCase();
+                    final List<String> allowedExtensions = [
+                      '.jpg',
+                      '.jpeg',
+                      '.png',
+                      '.webp',
+                      '.heic',
+                      '.heif',
+                      '.gif',
+                      '.svg',
+                      '.svgz',
+                      '.bmp',
+                      '.ico',
+                      '.tiff',
+                      '.tif',
+                      '.jfif',
+                      '.pjp',
+                      '.apng',
+                      '.xbm',
+                      '.jxl',
+                      '.jpe',
+                      '.pjpeg',
+                      '.avif'
+                    ];
+
+                    bool isImage = false;
+                    if (mimeType != null && mimeType.startsWith('image/')) {
+                      isImage = true;
+                    } else {
+                      for (var ext in allowedExtensions) {
+                        if (fileName.endsWith(ext)) {
+                          isImage = true;
+                          break;
+                        }
+                      }
+                    }
+
+                    if (!isImage) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                              content: Text(
+                                  'Error: "$fileName" no es una imagen permitida.')),
+                        );
+                      }
+                      return;
+                    }
+
                     setDialogState(() => isSaving = true);
                     final dbService = DatabaseService();
                     String? url;
@@ -632,6 +683,59 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                           final XFile? image = await picker.pickImage(
                               source: ImageSource.gallery, imageQuality: 50);
                           if (image == null) return;
+
+                          // Validación de tipo de archivo mejorada
+                          final String fileName = image.name.toLowerCase();
+                          final String? mimeType =
+                              image.mimeType?.toLowerCase();
+                          final List<String> allowedExtensions = [
+                            '.jpg',
+                            '.jpeg',
+                            '.png',
+                            '.webp',
+                            '.heic',
+                            '.heif',
+                            '.gif',
+                            '.svg',
+                            '.svgz',
+                            '.bmp',
+                            '.ico',
+                            '.tiff',
+                            '.tif',
+                            '.jfif',
+                            '.pjp',
+                            '.apng',
+                            '.xbm',
+                            '.jxl',
+                            '.jpe',
+                            '.pjpeg',
+                            '.avif'
+                          ];
+
+                          bool isImage = false;
+                          if (mimeType != null &&
+                              mimeType.startsWith('image/')) {
+                            isImage = true;
+                          } else {
+                            for (var ext in allowedExtensions) {
+                              if (fileName.endsWith(ext)) {
+                                isImage = true;
+                                break;
+                              }
+                            }
+                          }
+
+                          if (!isImage) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content: Text(
+                                        'Error: "$fileName" no es una imagen permitida.')),
+                              );
+                            }
+                            return;
+                          }
+
                           setDialogState(() => isSaving = true);
                           final dbService = DatabaseService();
                           String? url;
@@ -748,6 +852,59 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                           final XFile? image = await picker.pickImage(
                               source: ImageSource.gallery, imageQuality: 50);
                           if (image == null) return;
+
+                          // Validación de tipo de archivo mejorada
+                          final String fileName = image.name.toLowerCase();
+                          final String? mimeType =
+                              image.mimeType?.toLowerCase();
+                          final List<String> allowedExtensions = [
+                            '.jpg',
+                            '.jpeg',
+                            '.png',
+                            '.webp',
+                            '.heic',
+                            '.heif',
+                            '.gif',
+                            '.svg',
+                            '.svgz',
+                            '.bmp',
+                            '.ico',
+                            '.tiff',
+                            '.tif',
+                            '.jfif',
+                            '.pjp',
+                            '.apng',
+                            '.xbm',
+                            '.jxl',
+                            '.jpe',
+                            '.pjpeg',
+                            '.avif'
+                          ];
+
+                          bool isImage = false;
+                          if (mimeType != null &&
+                              mimeType.startsWith('image/')) {
+                            isImage = true;
+                          } else {
+                            for (var ext in allowedExtensions) {
+                              if (fileName.endsWith(ext)) {
+                                isImage = true;
+                                break;
+                              }
+                            }
+                          }
+
+                          if (!isImage) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content: Text(
+                                        'Error: "$fileName" no es una imagen permitida.')),
+                              );
+                            }
+                            return;
+                          }
+
                           setDialogState(() => isSaving = true);
                           final dbService = DatabaseService();
                           String? url;

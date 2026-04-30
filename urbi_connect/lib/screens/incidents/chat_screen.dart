@@ -30,7 +30,58 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _sendImage() async {
     final XFile? image =
         await _picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
-    if (image == null) return;
+    if (image == null) {
+      return;
+    }
+
+    // Validación de tipo de archivo mejorado
+    final String fileName = image.name.toLowerCase();
+    final String? mimeType = image.mimeType?.toLowerCase();
+    final List<String> allowedExtensions = [
+      '.jpg',
+      '.jpeg',
+      '.png',
+      '.webp',
+      '.heic',
+      '.heif',
+      '.gif',
+      '.svg',
+      '.svgz',
+      '.bmp',
+      '.ico',
+      '.tiff',
+      '.tif',
+      '.jfif',
+      '.pjp',
+      '.apng',
+      '.xbm',
+      '.jxl',
+      '.jpe',
+      '.pjpeg',
+      '.avif'
+    ];
+
+    bool isImage = false;
+    if (mimeType != null && mimeType.startsWith('image/')) {
+      isImage = true;
+    } else {
+      for (var ext in allowedExtensions) {
+        if (fileName.endsWith(ext)) {
+          isImage = true;
+          break;
+        }
+      }
+    }
+
+    if (!isImage) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Error: "$fileName" no es una imagen permitida.')),
+        );
+      }
+      return;
+    }
 
     setState(() => _isUploading = true);
 

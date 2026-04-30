@@ -77,6 +77,59 @@ class _SupportScreenState extends State<SupportScreen> {
                           final XFile? image = await picker.pickImage(
                               source: ImageSource.gallery, imageQuality: 50);
                           if (image == null) return;
+
+                          // Validación de tipo de archivo mejorada
+                          final String fileName = image.name.toLowerCase();
+                          final String? mimeType =
+                              image.mimeType?.toLowerCase();
+                          final List<String> allowedExtensions = [
+                            '.jpg',
+                            '.jpeg',
+                            '.png',
+                            '.webp',
+                            '.heic',
+                            '.heif',
+                            '.gif',
+                            '.svg',
+                            '.svgz',
+                            '.bmp',
+                            '.ico',
+                            '.tiff',
+                            '.tif',
+                            '.jfif',
+                            '.pjp',
+                            '.apng',
+                            '.xbm',
+                            '.jxl',
+                            '.jpe',
+                            '.pjpeg',
+                            '.avif'
+                          ];
+
+                          bool isImage = false;
+                          if (mimeType != null &&
+                              mimeType.startsWith('image/')) {
+                            isImage = true;
+                          } else {
+                            for (var ext in allowedExtensions) {
+                              if (fileName.endsWith(ext)) {
+                                isImage = true;
+                                break;
+                              }
+                            }
+                          }
+
+                          if (!isImage) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content: Text(
+                                        'Error: "${image.name}" no es una imagen permitida.')),
+                              );
+                            }
+                            return;
+                          }
+
                           setDialogState(() => isSaving = true);
                           final dbService = DatabaseService();
                           String? url;
@@ -295,23 +348,23 @@ class _SupportScreenState extends State<SupportScreen> {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
-        leading: _buildStatusIndicator(data['estado']),
         title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle:
             Text('$subtitlePrefix${DateFormat('dd/MM HH:mm').format(date)}'),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            const Icon(Icons.chevron_right, color: Colors.grey),
             if (widget.isAdmin && role != null) ...[
-              const SizedBox(height: 4),
               _buildRoleBadge(role),
+              const SizedBox(height: 4),
             ],
             if (widget.isAdmin && isGuest) ...[
+              _buildBadge('Invitado', Colors.orange[800]!),
               const SizedBox(height: 4),
-              _buildGuestBadge(),
             ],
+            // Usamos un badge para el estado en lugar del punto
+            _buildBadge(data['estado'], _getStatusColor(data['estado'])),
           ],
         ),
         onTap: () {
@@ -376,6 +429,19 @@ class _SupportScreenState extends State<SupportScreen> {
     );
   }
 
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'Abierto':
+        return Colors.red;
+      case 'En proceso':
+        return Colors.orange;
+      case 'Cerrado':
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
+  }
+
   Widget _buildRoleBadge(String role) {
     final String r = role.toLowerCase();
     Color color = Colors.blue;
@@ -398,7 +464,7 @@ class _SupportScreenState extends State<SupportScreen> {
 
   Widget _buildBadge(String text, Color color) {
     return Container(
-      width: 75,
+      width: 90,
       padding: const EdgeInsets.symmetric(vertical: 2),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),

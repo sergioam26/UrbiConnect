@@ -385,6 +385,56 @@ class _IncidentEditScreenState extends State<IncidentEditScreen> {
             await _picker.pickMultiImage(imageQuality: 50);
         if (pickedFiles.isNotEmpty) {
           for (var pickedFile in pickedFiles) {
+            // Validación de tipo de archivo mejorada
+            final String fileName = pickedFile.name.toLowerCase();
+            final String? mimeType = pickedFile.mimeType?.toLowerCase();
+            final List<String> allowedExtensions = [
+              '.jpg',
+              '.jpeg',
+              '.png',
+              '.webp',
+              '.heic',
+              '.heif',
+              '.gif',
+              '.svg',
+              '.svgz',
+              '.bmp',
+              '.ico',
+              '.tiff',
+              '.tif',
+              '.jfif',
+              '.pjp',
+              '.apng',
+              '.xbm',
+              '.jxl',
+              '.jpe',
+              '.pjpeg',
+              '.avif'
+            ];
+
+            bool isImage = false;
+            if (mimeType != null && mimeType.startsWith('image/')) {
+              isImage = true;
+            } else {
+              for (var ext in allowedExtensions) {
+                if (fileName.endsWith(ext)) {
+                  isImage = true;
+                  break;
+                }
+              }
+            }
+
+            if (!isImage) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                      content: Text(
+                          'Error: "$fileName" no es una imagen permitida.')),
+                );
+              }
+              continue;
+            }
+
             if (kIsWeb) {
               final bytes = await pickedFile.readAsBytes();
               setState(() {
@@ -400,6 +450,56 @@ class _IncidentEditScreenState extends State<IncidentEditScreen> {
         final XFile? pickedFile =
             await _picker.pickImage(source: source, imageQuality: 50);
         if (pickedFile != null) {
+          // Validación de tipo de archivo mejorada
+          final String fileName = pickedFile.name.toLowerCase();
+          final String? mimeType = pickedFile.mimeType?.toLowerCase();
+          final List<String> allowedExtensions = [
+            '.jpg',
+            '.jpeg',
+            '.png',
+            '.webp',
+            '.heic',
+            '.heif',
+            '.gif',
+            '.svg',
+            '.svgz',
+            '.bmp',
+            '.ico',
+            '.tiff',
+            '.tif',
+            '.jfif',
+            '.pjp',
+            '.apng',
+            '.xbm',
+            '.jxl',
+            '.jpe',
+            '.pjpeg',
+            '.avif'
+          ];
+
+          bool isImage = false;
+          if (mimeType != null && mimeType.startsWith('image/')) {
+            isImage = true;
+          } else {
+            for (var ext in allowedExtensions) {
+              if (fileName.endsWith(ext)) {
+                isImage = true;
+                break;
+              }
+            }
+          }
+
+          if (!isImage) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                    content:
+                        Text('Error: "$fileName" no es una imagen permitida.')),
+              );
+            }
+            return;
+          }
+
           if (kIsWeb) {
             final bytes = await pickedFile.readAsBytes();
             setState(() {

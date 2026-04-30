@@ -71,6 +71,58 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         await picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
 
     if (pickedFile != null) {
+      // Validación de tipo de archivo mejorada
+      final String fileName = pickedFile.name.toLowerCase();
+      final String? mimeType = pickedFile.mimeType?.toLowerCase();
+      final List<String> allowedExtensions = [
+        '.jpg',
+        '.jpeg',
+        '.png',
+        '.webp',
+        '.heic',
+        '.heif',
+        '.gif',
+        '.svg',
+        '.svgz',
+        '.bmp',
+        '.ico',
+        '.tiff',
+        '.tif',
+        '.jfif',
+        '.pjp',
+        '.apng',
+        '.xbm',
+        '.jxl',
+        '.jpe',
+        '.pjpeg',
+        '.avif'
+      ];
+
+      bool isImage = false;
+      // Primero intentamos por tipo MIME
+      if (mimeType != null && mimeType.startsWith('image/')) {
+        isImage = true;
+      } else {
+        // Si no hay MIME o falla, revisamos extensión
+        for (var ext in allowedExtensions) {
+          if (fileName.endsWith(ext)) {
+            isImage = true;
+            break;
+          }
+        }
+      }
+
+      if (!isImage) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content:
+                    Text('Error: "$fileName" no es una imagen permitida.')),
+          );
+        }
+        return;
+      }
+
       if (!mounted) return;
       setState(() => _isLoading = true);
       final authService = Provider.of<AuthService>(context, listen: false);
