@@ -246,36 +246,39 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
-                  ListTile(
-                    leading: const Icon(Icons.notifications_active,
-                        color: Colors.orange),
-                    title: const Text('Enviar recordatorio al ayuntamiento'),
-                    onTap: () async {
-                      final success =
-                          await DatabaseService().sendReminder(widget.incident);
+                  if (FirebaseAuth.instance.currentUser?.uid ==
+                          widget.incident.userId &&
+                      widget.incident.status.toLowerCase() != 'resuelta')
+                    ListTile(
+                      leading: const Icon(Icons.notifications_active,
+                          color: Colors.orange),
+                      title: const Text('Enviar recordatorio al ayuntamiento'),
+                      onTap: () async {
+                        final success = await DatabaseService()
+                            .sendReminder(widget.incident);
 
-                      if (context.mounted) {
-                        if (success) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content:
-                                    Text('Recordatorio enviado con éxito.')),
-                          );
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                  'Solo puedes enviar un recordatorio cada 3 días.'),
-                              backgroundColor: Colors.orange,
-                            ),
-                          );
+                        if (context.mounted) {
+                          if (success) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content:
+                                      Text('Recordatorio enviado con éxito.')),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                    'Solo puedes enviar un recordatorio cada 3 días.'),
+                                backgroundColor: Colors.orange,
+                              ),
+                            );
+                          }
                         }
-                      }
-                    },
-                  ),
+                      },
+                    ),
                   ListTile(
                     leading: const Icon(Icons.chat, color: Colors.blue),
-                    title: const Text('Chat con el responsable municipal'),
+                    title: const Text('Chat con el responsable'),
                     onTap: () {
                       Navigator.push(
                         context,

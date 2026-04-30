@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -43,7 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  List<Widget> _getPages(bool isAdmin) {
+  List<Widget> _getPages(bool isAdmin, bool isResponsible) {
     if (isAdmin) {
       return [
         const AdminDashboard(),
@@ -76,7 +75,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final isResponsible =
             role == 'responsable' || role == 'responsable municipal';
 
-        final pages = _getPages(isAdmin);
+        final pages = _getPages(isAdmin, isResponsible);
 
         return Scaffold(
           appBar: AppBar(
@@ -155,10 +154,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     )
                   : null,
           bottomNavigationBar: Container(
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: Colors.white,
-              border: const Border(
-                  top: BorderSide(color: Color(0xFFE2E8F0), width: 0.5)),
+              border:
+                  Border(top: BorderSide(color: Color(0xFFE2E8F0), width: 0.5)),
             ),
             child: NavigationBar(
               selectedIndex: _selectedIndex,
@@ -178,30 +177,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   label: isAdmin ? 'Gestión' : 'Inicio',
                 ),
                 NavigationDestination(
-                  icon: StreamBuilder<QuerySnapshot>(
-                    stream: isAdmin
-                        ? FirebaseFirestore.instance
-                            .collection('Soporte')
-                            .where('admin_leido', isEqualTo: false)
-                            .snapshots()
-                        : FirebaseFirestore.instance
-                            .collection('Soporte')
-                            .where('id_usuario', isEqualTo: user.uid)
-                            .where('not_admin_leido', isEqualTo: false)
-                            .snapshots(),
-                    builder: (context, snapshot) {
-                      int count = snapshot.data?.docs.length ?? 0;
-                      // Si el admin está viendo mensajes, tal vez deberíamos filtrar los chats "resuelta" si el usuario así lo cree?
-                      // Pero "leído" es independiente del estado.
-                      if (count > 0) {
-                        return Badge.count(
-                          count: count > 99 ? 99 : count,
-                          child: const Icon(Icons.chat_bubble_outline_rounded),
-                        );
-                      }
-                      return const Icon(Icons.chat_bubble_outline_rounded);
-                    },
-                  ),
+                  icon: const Icon(Icons.chat_bubble_outline_rounded),
                   selectedIcon: Icon(Icons.chat_bubble_rounded,
                       color: Theme.of(context).colorScheme.primary),
                   label: 'Mensajes',
@@ -248,7 +224,7 @@ class AdminDashboard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Panel de gestión',
+            'Panel de administración',
             style: GoogleFonts.montserrat(
               fontSize: 28,
               fontWeight: FontWeight.w800,

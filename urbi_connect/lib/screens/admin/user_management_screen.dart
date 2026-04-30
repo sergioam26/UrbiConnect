@@ -145,7 +145,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     ],
                     if (responsables.isNotEmpty) ...[
                       _buildHeader(
-                          'Responsables Municipales (${responsables.length})'),
+                          'Responsables municipales (${responsables.length})'),
                       ...responsables.map((u) => _buildUserCard(context, u)),
                       const SizedBox(height: 16),
                     ],
@@ -494,8 +494,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     if (r == 'admin') return 'Admin';
     if (r == 'ciudadano') return 'Ciudadano';
     if (r == 'responsable' || r == 'responsable municipal')
-      return 'Responsable Municipal';
-    return r[0].toUpperCase() + r.substring(1);
+      return 'Responsable municipal';
+    return r;
   }
 
   Widget _buildUserAvatarFromProps(UserProfile user) {
@@ -576,11 +576,15 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     final controller = TextEditingController();
     String? imageUrl;
     bool isSaving = false;
+    String currentText = '';
     final ImagePicker picker = ImagePicker();
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(builder: (context, setDialogState) {
+        final bool canSend =
+            !isSaving && (currentText.trim().isNotEmpty || imageUrl != null);
+
         return AlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -592,6 +596,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 TextField(
                   controller: controller,
                   maxLines: 3,
+                  onChanged: (val) => setDialogState(() => currentText = val),
                   decoration: InputDecoration(
                     hintText: 'Escribe el primer mensaje...',
                     border: OutlineInputBorder(
@@ -657,14 +662,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 onPressed: () => Navigator.pop(context),
                 child: const Text('Cancelar')),
             ElevatedButton(
-              onPressed: (isSaving ||
-                      (controller.text.trim().isEmpty && imageUrl == null))
+              onPressed: !canSend
                   ? null
                   : () async {
                       setDialogState(() => isSaving = true);
                       final ticketId = await SupportService().startAdminChat(
                         user.uid,
-                        controller.text.trim(),
+                        currentText.trim(),
                         imageUrl: imageUrl,
                       );
                       if (context.mounted) {

@@ -33,6 +33,11 @@ class ChatService {
       'fecha': FieldValue.serverTimestamp(),
     });
 
+    // Actualizar fecha de la incidencia para que suba en el centro de mensajes
+    await _db.collection('Incidencia').doc(incidentId).update({
+      'fecha': FieldValue.serverTimestamp(),
+    });
+
     // Notificar a la otra parte
     try {
       final incidentDoc =

@@ -42,6 +42,7 @@ class _SupportScreenState extends State<SupportScreen> {
                 TextField(
                   controller: controller,
                   maxLines: 4,
+                  onChanged: (_) => setDialogState(() {}),
                   decoration: InputDecoration(
                     hintText: 'Describe el problema con la aplicación...',
                     border: OutlineInputBorder(
@@ -124,19 +125,29 @@ class _SupportScreenState extends State<SupportScreen> {
                   ? null
                   : () async {
                       setDialogState(() => isSaving = true);
-                      final ticketId =
-                          await _supportService.createSupportTicket(
-                        controller.text.trim(),
-                        imageUrl: imageUrl,
-                      );
-                      if (context.mounted) {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => SupportChatScreen(
-                                  ticketId: ticketId, isAdmin: false)),
+                      try {
+                        final ticketId =
+                            await _supportService.createSupportTicket(
+                          controller.text.trim(),
+                          imageUrl: imageUrl,
                         );
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text(
+                                    'Ticket enviado. Espera a que un administrador responda.')),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $e')),
+                          );
+                        }
+                      } finally {
+                        if (context.mounted)
+                          setDialogState(() => isSaving = false);
                       }
                     },
               style: ElevatedButton.styleFrom(
@@ -181,12 +192,17 @@ class _SupportScreenState extends State<SupportScreen> {
           }
           // Sort in memory to avoid index requirements
           final tickets = snapshot.data!.docs;
-          final sortedTickets = List<QueryDocumentSnapshot>.from(tickets);
+          final List<QueryDocumentSnapshot> sortedTickets =
+              List<QueryDocumentSnapshot>.from(tickets);
           sortedTickets.sort((a, b) {
-            final dateA =
-                (a.get('fecha') as Timestamp?)?.toDate() ?? DateTime.now();
-            final dateB =
-                (b.get('fecha') as Timestamp?)?.toDate() ?? DateTime.now();
+            final dataA = a.data() as Map<String, dynamic>;
+            final dataB = b.data() as Map<String, dynamic>;
+            final dateA = (dataA['fecha'] as Timestamp?) ??
+                (dataA['fecha_creacion'] as Timestamp?) ??
+                Timestamp.now();
+            final dateB = (dataB['fecha'] as Timestamp?) ??
+                (dataB['fecha_creacion'] as Timestamp?) ??
+                Timestamp.now();
             return dateB.compareTo(dateA);
           });
 
@@ -227,27 +243,30 @@ class _SupportScreenState extends State<SupportScreen> {
                         .get(),
                     builder: (context, userSnap) {
                       String username = 'Usuario';
+                      String? role;
                       if (userSnap.hasData && userSnap.data != null) {
                         final userData =
                             userSnap.data!.data() as Map<String, dynamic>?;
                         username = userData?['usuario'] ??
                             userData?['nombre'] ??
                             'Usuario';
+                        role =
+                            (userData?['rol'] ?? '').toString().toLowerCase();
                       } else if (userSnap.hasError) {
                         username = 'Error';
                       } else if (userSnap.connectionState ==
                           ConnectionState.waiting) {
                         username = 'Cargando...';
                       }
-                      return _buildTicketCard(
-                          ticket, data, date, '$username: $titleText', '');
+                      return _buildTicketCard(ticket, data, date,
+                          '$username: $titleText', '', role);
                     },
                   );
                 }
               }
-
+              final bool isGuest = data['es_invitado'] ?? false;
               return _buildTicketCard(
-                  ticket, data, date, titleText, subtitlePrefix);
+                  ticket, data, date, titleText, subtitlePrefix, null, isGuest);
             },
           );
         },
@@ -270,7 +289,9 @@ class _SupportScreenState extends State<SupportScreen> {
       Map<String, dynamic> data,
       DateTime date,
       String title,
-      String subtitlePrefix) {
+      String subtitlePrefix,
+      [String? role,
+      bool isGuest = false]) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
@@ -278,7 +299,21 @@ class _SupportScreenState extends State<SupportScreen> {
         title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle:
             Text('$subtitlePrefix${DateFormat('dd/MM HH:mm').format(date)}'),
-        trailing: const Icon(Icons.chevron_right),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const Icon(Icons.chevron_right, color: Colors.grey),
+            if (widget.isAdmin && role != null) ...[
+              const SizedBox(height: 4),
+              _buildRoleBadge(role),
+            ],
+            if (widget.isAdmin && isGuest) ...[
+              const SizedBox(height: 4),
+              _buildGuestBadge(),
+            ],
+          ],
+        ),
         onTap: () {
           if (data['es_invitado'] == true && widget.isAdmin) {
             showDialog(
@@ -338,6 +373,44 @@ class _SupportScreenState extends State<SupportScreen> {
       width: 12,
       height: 12,
       decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    );
+  }
+
+  Widget _buildRoleBadge(String role) {
+    final String r = role.toLowerCase();
+    Color color = Colors.blue;
+    String text = 'Ciudadano';
+
+    if (r.contains('responsable')) {
+      color = Colors.purple;
+      text = 'Responsable';
+    } else if (r.contains('admin')) {
+      color = Colors.red;
+      text = 'Admin';
+    }
+
+    return _buildBadge(text, color);
+  }
+
+  Widget _buildGuestBadge() {
+    return _buildBadge('Invitado', Colors.orange[800]!);
+  }
+
+  Widget _buildBadge(String text, Color color) {
+    return Container(
+      width: 75,
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Center(
+        child: Text(
+          text,
+          style:
+              TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold),
+        ),
+      ),
     );
   }
 }

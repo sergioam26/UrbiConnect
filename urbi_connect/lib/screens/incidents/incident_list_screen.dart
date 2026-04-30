@@ -111,8 +111,9 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
           return const Center(child: Text('Perfil no encontrado'));
         }
 
-        final bool isResponsible = profile.role == 'Responsable' ||
-            profile.role == 'Responsable Municipal';
+        final role = profile.role.toLowerCase();
+        final bool isResponsible =
+            role == 'responsable' || role == 'responsable municipal';
 
         return Column(
           children: [
@@ -712,8 +713,8 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            if (profile.role == 'Responsable' ||
-                profile.role == 'Responsable Municipal') {
+            final role = profile.role.toLowerCase();
+            if (role == 'responsable' || role == 'responsable municipal') {
               Navigator.push(
                 context,
                 MaterialPageRoute(

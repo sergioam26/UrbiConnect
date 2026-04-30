@@ -462,26 +462,37 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
       );
     }
 
-    final bool canChat = widget.isAdmin ||
-        (ticketData['iniciado_por_admin'] == true) ||
-        hasMessages ||
-        (status == 'En proceso');
+    final bool canChat =
+        widget.isAdmin || (status == 'Abierto') || (status == 'En proceso');
 
     if (!canChat) {
+      String messageText =
+          'Reporte enviado. Un administrador iniciará el chat si es necesario.';
+      if (status == 'Cerrado' && !widget.isAdmin) {
+        messageText = 'Ticket pendiente de revisión por el administrador.';
+      }
       return Container(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
         decoration: BoxDecoration(
           color: Colors.blue[50],
           border: Border(
               top: BorderSide(color: Colors.blue.withValues(alpha: 0.1))),
         ),
-        child: const Center(
-          child: Text(
-            'Reporte enviado. Un administrador iniciará el chat si es necesario.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-                color: Colors.blue, fontSize: 13, fontWeight: FontWeight.w500),
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.hourglass_empty_rounded,
+                color: Colors.blue, size: 24),
+            const SizedBox(height: 8),
+            Text(
+              messageText,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: Colors.blue[800],
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500),
+            ),
+          ],
         ),
       );
     }

@@ -54,7 +54,7 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
             List<String>.from(userData?['id_categorias'] ?? []);
 
         return DefaultTabController(
-          length: 3,
+          length: isAdmin ? 3 : 2,
           child: Scaffold(
             backgroundColor: const Color(0xFFF8FAFC),
             appBar: AppBar(
@@ -70,6 +70,7 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
                 isScrollable: false,
                 labelColor: const Color(0xFF0F172A),
                 indicatorColor: const Color(0xFF0F172A),
+                indicatorSize: TabBarIndicatorSize.tab,
                 labelStyle:
                     const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 unselectedLabelStyle: const TextStyle(
@@ -81,7 +82,6 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
                         const Tab(text: 'Comunicados'),
                       ]
                     : [
-                        const Tab(text: 'Soporte'),
                         const Tab(text: 'Chats'),
                         const Tab(text: 'Comunicados'),
                       ],
@@ -90,17 +90,14 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
             body: isAdmin
                 ? TabBarView(
                     children: [
-                      _buildSupportList(context, user.uid, true,
-                          filterAdminInitiated: false),
-                      _buildSupportList(context, user.uid, true,
-                          filterAdminInitiated: true),
+                      _buildSupportList(context, 'admin_support'),
+                      _buildSupportList(context, 'admin_direct'),
                       _buildBroadcastHistory(context, isAdmin, user.uid, role),
                     ],
                   )
                 : TabBarView(
                     children: [
-                      _buildSupportList(context, user.uid, false),
-                      _buildIncidentChatsList(
+                      _buildUserDirectAndIncidentChatsList(
                           context, user.uid, isResponsible, categories),
                       _buildBroadcastHistory(context, isAdmin, user.uid, role),
                     ],
@@ -111,103 +108,241 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
     );
   }
 
-  Widget _buildSupportList(
-      BuildContext context, String currentUserId, bool isAdmin,
-      {bool? filterAdminInitiated}) {
-    Query query = FirebaseFirestore.instance.collection('Soporte');
-
-    // Si no es admin, solo sus propios mensajes
-    if (!isAdmin) {
-      query = query.where('id_usuario', isEqualTo: currentUserId);
-    }
-    // Para Admin, si filtramos por iniciados por admin, usamos el query directamente
-    else if (filterAdminInitiated == true) {
-      query = query.where('iniciado_por_admin', isEqualTo: true);
-    }
-    // Si es Admin y queremos los tickets de ciudadanos (iniciado_por_admin != true)
-    // No usamos isNull porque falla en Firestore para docs sin el campo.
-    // Simplemente traemos la colección y filtramos en memoria.
-
+  Widget _buildSupportList(BuildContext context, String type) {
     return StreamBuilder<QuerySnapshot>(
-      stream: query.snapshots(),
+      stream: _supportService.getAdminTickets(),
       builder: (context, snapshot) {
-        if (snapshot.hasError)
-          return const Center(child: Text('Error al cargar mensajes'));
-        if (snapshot.connectionState == ConnectionState.waiting)
+        if (snapshot.hasError) {
+          return _buildEmptyState('Error al conectar con la base de datos');
+        }
+
+        // Mientras carga, mostramos spinner
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
-
-        var docs = snapshot.data!.docs;
-
-        // Filtro en memoria para Admin cuando queremos ver solo tickets de ciudadanos
-        if (isAdmin && filterAdminInitiated == false) {
-          docs = docs.where((d) {
-            final data = d.data() as Map<String, dynamic>;
-            return data['iniciado_por_admin'] != true;
-          }).toList();
         }
 
-        if (docs.isEmpty) {
-          String emptyMsg = 'No hay chats activos';
-          if (isAdmin) {
-            emptyMsg = filterAdminInitiated == true
-                ? 'No has iniciado chats directos'
-                : 'No hay tickets de soporte pendientes';
-          }
-          return _buildEmptyState(emptyMsg);
+        final allDocs = snapshot.data?.docs ?? [];
+
+        // Filtramos en cliente para evitar fallos por falta de índices compuestos en Firestore
+        final filteredTickets = allDocs.where((doc) {
+          final d = doc.data() as Map<String, dynamic>;
+          final bool isDirect = d['iniciado_por_admin'] ?? false;
+          return type == 'admin_direct' ? isDirect : !isDirect;
+        }).toList();
+
+        if (filteredTickets.isEmpty) {
+          return _buildEmptyState(type == 'admin_support'
+              ? 'No hay tickets de soporte pendientes'
+              : 'No has iniciado chats directos todavía');
         }
 
-        final sortedDocs = List<QueryDocumentSnapshot>.from(docs);
-        sortedDocs.sort((a, b) {
-          final statusA = a.get('estado') as String;
-          final statusB = b.get('estado') as String;
-          if (statusA == 'Abierto' && statusB != 'Abierto') return -1;
-          if (statusA != 'Abierto' && statusB == 'Abierto') return 1;
-          final dateA =
-              (a.get('fecha') as Timestamp?)?.toDate() ?? DateTime(2000);
-          final dateB =
-              (b.get('fecha') as Timestamp?)?.toDate() ?? DateTime(2000);
-          return dateB.compareTo(dateA);
-        });
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: filteredTickets.length,
+          itemBuilder: (context, index) {
+            final ticket = filteredTickets[index];
+            return _buildSupportCard(context, ticket, true);
+          },
+        );
+      },
+    );
+  }
 
-        return Column(
+  Widget _buildSupportCard(
+      BuildContext context, DocumentSnapshot ticket, bool isAdmin) {
+    final data = ticket.data() as Map<String, dynamic>;
+    final String? userId = data['id_usuario'];
+    final String status = data['estado'] ?? 'Cerrado';
+    final String lastMessage = data['descripcion'] ?? 'Inicia conversación';
+    final DateTime lastUpdate =
+        (data['fecha'] as Timestamp?)?.toDate() ?? DateTime.now();
+    final bool isUnreadByAdmin = !(data['admin_leido'] ?? true);
+    final bool isGuest = data['es_invitado'] ?? false;
+    final bool isDirect = data['iniciado_por_admin'] ?? false;
+
+    // Determinar etiqueta de estado para Admin
+    String statusLabel = 'Pendiente';
+    Color statusColor = Colors.orange;
+
+    if (status == 'Abierto' || status == 'En proceso') {
+      statusLabel = 'Activo';
+      statusColor = Colors.green;
+    } else if (status == 'Cerrado') {
+      if (isDirect) {
+        statusLabel = 'Finalizado';
+        statusColor = Colors.grey;
+      } else {
+        // Si es un ticket de usuario y sigue cerrado, es que no hemos respondido
+        statusLabel = 'Pendiente';
+        statusColor = Colors.orange;
+      }
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4))
+        ],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: _buildUserAvatar(userId ?? '', isGuest, data),
+        title: _buildSenderName(userId ?? '', isGuest, data, isAdmin),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (isAdmin &&
-                docs.any((d) =>
-                    (d.data() as Map<String, dynamic>)['admin_leido'] == false))
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton.icon(
-                    onPressed: () async {
-                      final batch = FirebaseFirestore.instance.batch();
-                      for (var doc in docs) {
-                        if ((doc.data()
-                                as Map<String, dynamic>)['admin_leido'] ==
-                            false) {
-                          batch.update(doc.reference, {'admin_leido': true});
-                        }
-                      }
-                      await batch.commit();
-                    },
-                    icon: const Icon(Icons.done_all_rounded, size: 18),
-                    label: const Text('Marcar todos como leídos',
-                        style: TextStyle(fontSize: 12)),
-                  ),
-                ),
-              ),
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: sortedDocs.length,
-                itemBuilder: (context, index) {
-                  final doc = sortedDocs[index];
-                  final data = doc.data() as Map<String, dynamic>;
-                  return _buildSupportCard(context, doc.id, data, isAdmin);
-                },
-              ),
+            const SizedBox(height: 4),
+            Text(lastMessage,
+                style: TextStyle(
+                    fontSize: 13,
+                    color: isUnreadByAdmin ? Colors.black : Colors.grey[600],
+                    fontWeight:
+                        isUnreadByAdmin ? FontWeight.bold : FontWeight.normal),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Text(DateFormat('dd/MM HH:mm').format(lastUpdate),
+                    style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+              ],
             ),
           ],
+        ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            if (isAdmin && !isGuest && userId != null) ...[
+              _buildUserRoleBadge(userId),
+              const SizedBox(height: 4),
+            ],
+            if (isGuest) ...[
+              _buildBadge('Invitado', Colors.orange[800]!),
+              const SizedBox(height: 4),
+            ],
+            _buildBadge(statusLabel, statusColor),
+          ],
+        ),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (context) =>
+                  SupportChatScreen(ticketId: ticket.id, isAdmin: isAdmin)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUserRoleBadge(String userId) {
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || !snapshot.data!.exists)
+          return const SizedBox();
+        final userData = snapshot.data!.data() as Map<String, dynamic>?;
+        final String role = (userData?['rol'] ?? '').toString().toLowerCase();
+
+        Color color = Colors.blue;
+        String text = 'Ciudadano';
+
+        if (role.contains('responsable')) {
+          color = Colors.purple;
+          text = 'Responsable';
+        } else if (role.contains('admin')) {
+          color = Colors.red;
+          text = 'Admin';
+        }
+
+        return _buildBadge(text, color);
+      },
+    );
+  }
+
+  Widget _buildBadge(String text, Color color) {
+    return Container(
+      width: 75,
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Center(
+        child: Text(
+          text,
+          style:
+              TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.chat_bubble_outline_rounded,
+              size: 64, color: Colors.grey[300]),
+          const SizedBox(height: 16),
+          Text(message,
+              style: TextStyle(color: Colors.grey[600], fontSize: 16),
+              textAlign: TextAlign.center),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSenderName(
+      String userId, bool isGuest, Map<String, dynamic> data, bool isAdmin) {
+    if (isGuest) {
+      return Text('${data['nombre_invitado']} ${data['apellidos_invitado']}',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15));
+    }
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
+      builder: (context, userSnap) {
+        String name = isAdmin ? 'Usuario' : 'Administración';
+        if (userSnap.hasData == true) {
+          final userData = userSnap.data!.data() as Map<String, dynamic>?;
+          name = userData?['usuario'] ??
+              userData?['nombre'] ??
+              (isAdmin ? 'Usuario' : 'Administración');
+        }
+        return Text(name,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15));
+      },
+    );
+  }
+
+  Widget _buildUserAvatar(
+      String userId, bool isGuest, Map<String, dynamic> data) {
+    if (isGuest)
+      return CircleAvatar(
+          radius: 24,
+          backgroundColor: Colors.grey[100],
+          child: const Icon(Icons.person_outline_rounded, color: Colors.grey));
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
+      builder: (context, snapshot) {
+        final userData = snapshot.hasData
+            ? snapshot.data!.data() as Map<String, dynamic>?
+            : null;
+        final photoUrl = userData?['foto_perfil'];
+        return CircleAvatar(
+          radius: 24,
+          backgroundColor: Colors.grey[100],
+          child: photoUrl != null
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: Image.network(photoUrl, fit: BoxFit.cover))
+              : const Icon(Icons.person, color: Colors.grey),
         );
       },
     );
@@ -359,14 +494,18 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
                           final formattedTargets = targets
                               .map((t) {
                                 final r = t.toString().toLowerCase();
-                                if (r == 'admin') return 'Admin';
-                                if (r == 'ciudadano' || r == 'ciudadanos')
-                                  return 'Ciudadanos';
+                                if (r == 'admin') {
+                                  return 'admin';
+                                }
+                                if (r == 'ciudadano' || r == 'ciudadanos') {
+                                  return 'ciudadanos';
+                                }
                                 if (r == 'responsable' ||
                                     r == 'responsables' ||
-                                    r == 'responsable municipal')
-                                  return 'Responsables Municipales';
-                                return r[0].toUpperCase() + r.substring(1);
+                                    r == 'responsable municipal') {
+                                  return 'responsables municipales';
+                                }
+                                return r;
                               })
                               .toSet()
                               .join(", ");
@@ -567,154 +706,184 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
     );
   }
 
-  Widget _buildIncidentChatsList(BuildContext context, String currentUserId,
-      bool isResponsible, List<String> categories) {
-    Stream<QuerySnapshot> stream;
-    if (isResponsible) {
-      if (categories.isEmpty)
-        return _buildEmptyState(
-            'No tienes categorías asignadas para gestionar');
-      stream = FirebaseFirestore.instance
-          .collection('Incidencia')
-          .where('id_categoria', whereIn: categories)
-          .snapshots();
-    } else {
-      stream = FirebaseFirestore.instance
-          .collection('Incidencia')
-          .where('id_usuario', isEqualTo: currentUserId)
-          .snapshots();
-    }
+  Widget _buildUserDirectAndIncidentChatsList(BuildContext context,
+      String currentUserId, bool isResponsible, List<String> categories) {
+    return Column(
+      children: [
+        Expanded(
+          child: StreamBuilder<QuerySnapshot>(
+            stream: _supportService.getUserTickets(currentUserId),
+            builder: (context, supportSnapshot) {
+              return StreamBuilder<QuerySnapshot>(
+                stream: isResponsible
+                    ? (categories.isEmpty
+                        ? const Stream.empty()
+                        : FirebaseFirestore.instance
+                            .collection('Incidencia')
+                            .where('id_categoria', whereIn: categories)
+                            .snapshots())
+                    : FirebaseFirestore.instance
+                        .collection('Incidencia')
+                        .where('id_usuario', isEqualTo: currentUserId)
+                        .snapshots(),
+                builder: (context, incidentSnapshot) {
+                  if (supportSnapshot.hasError || incidentSnapshot.hasError) {
+                    return const Center(child: Text('Error al cargar chats'));
+                  }
 
-    return StreamBuilder<QuerySnapshot>(
-      stream: stream,
-      builder: (context, snapshot) {
-        if (snapshot.hasError)
-          return const Center(
-              child: Text('Error al cargar chats de incidencias'));
-        if (!snapshot.hasData)
-          return const Center(child: CircularProgressIndicator());
+                  // Solo mostramos spinner si AMBOS están cargando.
+                  // Si uno tiene datos, permitimos que se vea algo.
+                  if (supportSnapshot.connectionState ==
+                          ConnectionState.waiting &&
+                      incidentSnapshot.connectionState ==
+                          ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-        var incidents = snapshot.data!.docs;
+                  // Procesar tickets de soporte (incluye directos del admin)
+                  final List<Map<String, dynamic>> allChats = [];
+                  if (supportSnapshot.hasData) {
+                    allChats.addAll(supportSnapshot.data!.docs
+                        .map((doc) => {'type': 'support', 'doc': doc}));
+                  }
 
-        // Ocultamos las eliminadas (soft delete) para todos en la vista de chats
-        incidents = incidents.where((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          return data['es_eliminada'] != true;
-        }).toList();
+                  // Procesar incidencias
+                  if (incidentSnapshot.hasData) {
+                    final incidents = incidentSnapshot.data!.docs.where((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      return data['es_eliminada'] != true;
+                    }).map((doc) => {'type': 'incident', 'doc': doc});
+                    allChats.addAll(incidents);
+                  }
 
-        if (incidents.isEmpty) {
-          return _buildEmptyState('No tienes chats activos en tus incidencias');
-        }
+                  if (allChats.isEmpty) {
+                    // Si aún está cargando uno de los streams, esperamos antes de mostrar vacío
+                    if (supportSnapshot.connectionState ==
+                            ConnectionState.waiting ||
+                        incidentSnapshot.connectionState ==
+                            ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    return _buildEmptyState('No tienes chats activos todavía');
+                  }
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: incidents.length,
-          itemBuilder: (context, index) {
-            final incidentDoc = incidents[index];
-            final data = incidentDoc.data() as Map<String, dynamic>;
-            final String title = data['titulo'] ?? 'Sin título';
-            final String status = data['estado'] ?? 'Reportada';
-            final String? imageUrl = data['foto_url'];
+                  // Ordenar por fecha de última actividad (si existe el campo)
+                  allChats.sort((a, b) {
+                    final dataA = (a['doc'] as DocumentSnapshot).data()
+                        as Map<String, dynamic>;
+                    final dataB = (b['doc'] as DocumentSnapshot).data()
+                        as Map<String, dynamic>;
+                    final dateA = (dataA['fecha'] as Timestamp?) ??
+                        (dataA['fecha_creacion'] as Timestamp?) ??
+                        Timestamp.now();
+                    final dateB = (dataB['fecha'] as Timestamp?) ??
+                        (dataB['fecha_creacion'] as Timestamp?) ??
+                        Timestamp.now();
+                    return dateB.compareTo(dateA);
+                  });
 
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4))
-                ],
-              ),
-              child: ListTile(
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                leading: Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(12),
-                    image: imageUrl != null
-                        ? DecorationImage(
-                            image: NetworkImage(imageUrl), fit: BoxFit.cover)
-                        : null,
-                  ),
-                  child: imageUrl == null
-                      ? Icon(Icons.report_problem_outlined,
-                          color: Colors.amber[800], size: 24)
-                      : null,
-                ),
-                title: Text(title,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 15)),
-                subtitle: Text(
-                    'ID #${incidentDoc.id.substring(0, 5).toUpperCase()} • $status',
-                    style: const TextStyle(fontSize: 12)),
-                trailing: const Icon(Icons.chat_bubble_rounded,
-                    color: Color(0xFF0F172A)),
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) =>
-                          ChatScreen(incidentId: incidentDoc.id)),
-                ),
-              ),
-            );
-          },
-        );
-      },
+                  return ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: allChats.length,
+                    itemBuilder: (context, index) {
+                      final chat = allChats[index];
+                      final doc = chat['doc'] as DocumentSnapshot;
+                      final data = doc.data() as Map<String, dynamic>;
+                      final type = chat['type'];
+
+                      if (type == 'support') {
+                        final bool isUnread =
+                            !(data['not_admin_leido'] ?? true);
+                        return _buildSupportChatTile(context, doc, isUnread);
+                      } else {
+                        return _buildIncidentChatTile(context, doc);
+                      }
+                    },
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildEmptyState(String message) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.chat_bubble_outline_rounded,
-              size: 64, color: Colors.grey[300]),
-          const SizedBox(height: 16),
-          Text(message,
-              style: TextStyle(color: Colors.grey[600], fontSize: 16),
-              textAlign: TextAlign.center),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSupportCard(BuildContext context, String docId,
-      Map<String, dynamic> data, bool isAdmin) {
-    final String status = data['estado'] ?? 'Abierto';
-    final bool isGuest = data['es_invitado'] == true;
-    final String userId = data['id_usuario'] ?? '';
+  Widget _buildSupportChatTile(
+      BuildContext context, DocumentSnapshot doc, bool isUnread) {
+    final data = doc.data() as Map<String, dynamic>;
+    final String title = data['iniciado_por_admin'] == true
+        ? 'Mensaje de Administración'
+        : 'Ticket de soporte';
+    final String lastMessage = data['descripcion'] ?? 'Sin mensajes';
     final DateTime date =
         (data['fecha'] as Timestamp?)?.toDate() ?? DateTime.now();
-    final bool isUnread = isAdmin
-        ? (data['admin_leido'] == false)
-        : (data['not_admin_leido'] == false);
-
-    Color statusColor;
-    switch (status) {
-      case 'Abierto':
-        statusColor = Colors.red;
-        break;
-      case 'En proceso':
-        statusColor = Colors.orange;
-        break;
-      case 'Cerrado':
-        statusColor = Colors.green;
-        break;
-      default:
-        statusColor = Colors.grey;
-    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: isUnread ? const Color(0xFFF0F7FF) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: isUnread
+            ? Border.all(color: Colors.indigo.withValues(alpha: 0.1))
+            : null,
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4))
+        ],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+              color: Colors.indigo[50],
+              borderRadius: BorderRadius.circular(12)),
+          child:
+              const Icon(Icons.shield_outlined, color: Colors.indigo, size: 24),
+        ),
+        title: Text(title,
+            style: TextStyle(
+                fontWeight: isUnread ? FontWeight.bold : FontWeight.w600,
+                fontSize: 15)),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(lastMessage,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    fontSize: 13,
+                    color: isUnread ? Colors.black87 : Colors.grey[600])),
+            const SizedBox(height: 4),
+            Text(DateFormat('dd/MM HH:mm').format(date),
+                style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+          ],
+        ),
+        trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (context) =>
+                  SupportChatScreen(ticketId: doc.id, isAdmin: false)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIncidentChatTile(BuildContext context, DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    final String title = data['titulo'] ?? 'Sin título';
+    final String status = data['estado'] ?? 'Reportada';
+    final String? imageUrl = data['foto_url'];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -722,164 +891,52 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
               blurRadius: 10,
               offset: const Offset(0, 4))
         ],
-        border: isUnread
-            ? Border.all(color: Colors.blue.withValues(alpha: 0.3), width: 1)
-            : null,
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: () => Navigator.push(
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(12),
+            image: imageUrl != null
+                ? DecorationImage(
+                    image: NetworkImage(imageUrl), fit: BoxFit.cover)
+                : null,
+          ),
+          child: imageUrl == null
+              ? Icon(Icons.report_problem_outlined,
+                  color: Colors.amber[800], size: 24)
+              : null,
+        ),
+        title: Text(title,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+        subtitle: Text('ID #${doc.id.substring(0, 5).toUpperCase()} • $status',
+            style: const TextStyle(fontSize: 12)),
+        trailing:
+            const Icon(Icons.chat_bubble_rounded, color: Color(0xFF0F172A)),
+        onTap: () => Navigator.push(
             context,
             MaterialPageRoute(
-                builder: (context) =>
-                    SupportChatScreen(ticketId: docId, isAdmin: isAdmin)),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Stack(
-                  children: [
-                    _buildUserAvatar(userId, isGuest, data),
-                    if (isUnread)
-                      Positioned(
-                        right: 0,
-                        top: 0,
-                        child: Container(
-                          width: 12,
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _buildSenderName(userId, isGuest, data, isAdmin),
-                          Text(DateFormat('dd MMM, HH:mm').format(date),
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  color: isUnread
-                                      ? Colors.blue[700]
-                                      : Colors.grey[500],
-                                  fontWeight: isUnread
-                                      ? FontWeight.bold
-                                      : FontWeight.normal)),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(data['descripcion'] ?? '',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: isUnread ? Colors.black87 : Colors.grey[600],
-                            fontWeight:
-                                isUnread ? FontWeight.bold : FontWeight.normal,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                                color: statusColor.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8)),
-                            child: Text(status,
-                                style: TextStyle(
-                                    color: statusColor,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold)),
-                          ),
-                          if (data['iniciado_por_admin'] == true) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                  color: Colors.indigo[50],
-                                  borderRadius: BorderRadius.circular(8)),
-                              child: Text('Oficial',
-                                  style: TextStyle(
-                                      color: Colors.indigo[700],
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w900)),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(Icons.chevron_right_rounded,
-                    color: isUnread ? Colors.blue : Colors.grey),
-              ],
-            ),
-          ),
-        ),
+                builder: (context) => ChatScreen(incidentId: doc.id))),
       ),
     );
   }
 
-  Widget _buildSenderName(
-      String userId, bool isGuest, Map<String, dynamic> data, bool isAdmin) {
-    if (isGuest) {
-      return Text('${data['nombre_invitado']} ${data['apellidos_invitado']}',
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15));
-    }
-    return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
-      builder: (context, userSnap) {
-        String name = isAdmin ? 'Usuario' : 'Administración';
-        if (userSnap.hasData == true) {
-          final userData = userSnap.data!.data() as Map<String, dynamic>?;
-          name = userData?['usuario'] ??
-              userData?['nombre'] ??
-              (isAdmin ? 'Usuario' : 'Administración');
-        }
-        return Text(name,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15));
-      },
-    );
+  Widget _buildIncidentChatsList(BuildContext context, String currentUserId,
+      bool isResponsible, List<String> categories) {
+    // This is now replaced by _buildUserDirectAndIncidentChatsList but kept for potential legacy reference if needed
+    // However, I've updated the build method to use the new one.
+    return const SizedBox();
   }
 
-  Widget _buildUserAvatar(
-      String userId, bool isGuest, Map<String, dynamic> data) {
-    if (isGuest)
-      return CircleAvatar(
-          radius: 24,
-          backgroundColor: Colors.grey[100],
-          child: const Icon(Icons.person_outline_rounded, color: Colors.grey));
-    return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
-      builder: (context, snapshot) {
-        final userData = snapshot.hasData
-            ? snapshot.data!.data() as Map<String, dynamic>?
-            : null;
-        final photoUrl = userData?['foto_perfil'];
-        return CircleAvatar(
-          radius: 24,
-          backgroundColor: Colors.grey[100],
-          child: photoUrl != null
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
-                  child: Image.network(photoUrl, fit: BoxFit.cover))
-              : const Icon(Icons.person, color: Colors.grey),
-        );
-      },
-    );
+  String _formatRole(String role) {
+    final r = role.toLowerCase();
+    if (r == 'admin') return 'Admin';
+    if (r == 'ciudadano') return 'Ciudadano';
+    if (r == 'responsable' || r == 'responsable municipal')
+      return 'Responsable municipal';
+    return r;
   }
 }

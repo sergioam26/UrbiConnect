@@ -47,7 +47,9 @@ class SupportService {
         'descripcion': description,
         'url_imagen': imageUrl,
         'fecha': FieldValue.serverTimestamp(),
-        'estado': 'Abierto',
+        'estado':
+            'Cerrado', // Permanecerá cerrado hasta que el administrador responda por primera vez
+        'iniciado_por_admin': false,
         'admin_leido': false,
         'not_admin_leido': true,
       });
@@ -143,8 +145,10 @@ class SupportService {
         'descripcion': message,
         'url_imagen': imageUrl,
         'fecha': FieldValue.serverTimestamp(),
-        'estado': 'Abierto',
+        'estado':
+            'Cerrado', // Permanecerá cerrado hasta que el administrador responda
         'es_invitado': true,
+        'iniciado_por_admin': false,
         'admin_leido': false,
         'not_admin_leido': true,
       });
@@ -194,6 +198,18 @@ class SupportService {
   Stream<QuerySnapshot> getAllTickets() {
     return _db.collection('Soporte').snapshots().handleError(
         (e) => _handleFirestoreError(e, OperationType.list, 'Soporte'));
+  }
+
+  // Stream de tickets para admin sin filtros complejos para evitar errores de índice
+  Stream<QuerySnapshot> getAdminTickets() {
+    return _db
+        .collection('Soporte')
+        .orderBy('fecha', descending: true)
+        .snapshots()
+        .handleError((e) {
+      debugPrint('Error en getAdminTickets: $e');
+      return const Stream.empty();
+    });
   }
 
   // Marcar como leído
@@ -315,10 +331,11 @@ class SupportService {
         'fecha': FieldValue.serverTimestamp(),
       });
 
-      // Actualizar flags de lectura
+      // Actualizar flags de lectura y estado si el admin responde
       final ticket = await _db.collection('Soporte').doc(ticketId).get();
       final data = ticket.data() as Map<String, dynamic>;
       final String userId = data['id_usuario'] ?? '';
+      final String currentStatus = data['estado'] ?? 'Cerrado';
 
       bool isSenderAdmin = false;
       if (senderId != userId) {
@@ -332,10 +349,17 @@ class SupportService {
         }
       }
 
-      await _db.collection('Soporte').doc(ticketId).update({
+      final Map<String, dynamic> updates = {
         isSenderAdmin ? 'not_admin_leido' : 'admin_leido': false,
-        'fecha': FieldValue.serverTimestamp(), // Actualizar fecha de actividad
-      });
+        'fecha': FieldValue.serverTimestamp(),
+      };
+
+      // Si el admin responde a un ticket cerrado, abrirlo
+      if (isSenderAdmin && currentStatus == 'Cerrado') {
+        updates['estado'] = 'Abierto';
+      }
+
+      await _db.collection('Soporte').doc(ticketId).update(updates);
 
       // Notificar a la otra parte
       try {

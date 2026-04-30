@@ -153,7 +153,7 @@ class ProfileScreen extends StatelessWidget {
                     profile?.username ?? (user?.email?.split('@')[0] ?? '-')),
                 _buildDivider(),
                 _buildModernTile(context, Icons.verified_user_rounded, 'Rol',
-                    _capitalize(profile?.role ?? 'ciudadano')),
+                    _formatRole(profile?.role ?? 'ciudadano')),
                 _buildDivider(),
                 _buildModernTile(
                   context,
@@ -195,14 +195,14 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  String _capitalize(String text) {
+  String _formatRole(String text) {
     if (text.isEmpty) return text;
     final r = text.toLowerCase();
     if (r == 'admin') return 'Admin';
     if (r == 'ciudadano') return 'Ciudadano';
     if (r == 'responsable' || r == 'responsable municipal')
-      return 'Responsable Municipal';
-    return r[0].toUpperCase() + r.substring(1);
+      return 'Responsable municipal';
+    return r;
   }
 
   Widget _buildDivider() => const Divider(
@@ -259,7 +259,7 @@ class ProfileScreen extends StatelessWidget {
                           builder: (_) =>
                               const security.ChangePasswordScreen())),
                 ),
-                if (!isAdmin) ...[
+                if (profile?.role.toLowerCase() != 'admin') ...[
                   _buildDivider(),
                   _buildActionTile(
                     context,
@@ -269,7 +269,8 @@ class ProfileScreen extends StatelessWidget {
                     () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (_) => const SupportScreen())),
+                            builder: (_) =>
+                                const SupportScreen(isAdmin: false))),
                   ),
                 ],
                 _buildDivider(),
