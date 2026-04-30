@@ -19,12 +19,13 @@ class IncidentFormScreen extends StatefulWidget {
 class _IncidentFormScreenState extends State<IncidentFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final DatabaseService _dbService = DatabaseService();
+  final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
 
   String? _selectedCategoryId;
   List<Map<String, String>> _firestoreCategories = [];
-  XFile? _imageFile;
-  Uint8List? _webImage;
+  final List<XFile> _imageFiles = [];
+  final List<Uint8List> _webImages = [];
   Position? _currentPosition;
   bool _isLoading = false;
 
@@ -63,48 +64,53 @@ class _IncidentFormScreenState extends State<IncidentFormScreen> {
 
   @override
   void dispose() {
+    _titleController.dispose();
     _descriptionController.dispose();
     super.dispose();
   }
 
   Future<void> _pickImage(ImageSource source) async {
     try {
-      final XFile? pickedFile = await _picker.pickImage(
-        source: source,
-        imageQuality: 50, // Reducimos más la calidad para ganar velocidad
-        maxWidth:
-            800, // Reducimos la resolución a 800px (suficiente para ver incidencias)
-        maxHeight: 800,
-      );
-      if (pickedFile != null) {
-        // Validar que sea una imagen en Web
-        if (kIsWeb) {
-          final String fileName = pickedFile.name.toLowerCase();
-          if (!fileName.endsWith('.jpg') &&
-              !fileName.endsWith('.jpeg') &&
-              !fileName.endsWith('.png') &&
-              !fileName.endsWith('.webp')) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content: Text(
-                        'Por favor, selecciona solo archivos de imagen (jpg, png, webp).')),
-              );
+      if (source == ImageSource.gallery) {
+        final List<XFile> pickedFiles = await _picker.pickMultiImage(
+          imageQuality: 50,
+          maxWidth: 800,
+          maxHeight: 800,
+        );
+        if (pickedFiles.isNotEmpty) {
+          for (var pickedFile in pickedFiles) {
+            if (kIsWeb) {
+              final bytes = await pickedFile.readAsBytes();
+              setState(() {
+                _webImages.add(bytes);
+                _imageFiles.add(pickedFile);
+              });
+            } else {
+              setState(() {
+                _imageFiles.add(pickedFile);
+              });
             }
-            return;
           }
         }
-
-        if (kIsWeb) {
-          final bytes = await pickedFile.readAsBytes();
-          setState(() {
-            _webImage = bytes;
-            _imageFile = pickedFile;
-          });
-        } else {
-          setState(() {
-            _imageFile = pickedFile;
-          });
+      } else {
+        final XFile? pickedFile = await _picker.pickImage(
+          source: source,
+          imageQuality: 50,
+          maxWidth: 800,
+          maxHeight: 800,
+        );
+        if (pickedFile != null) {
+          if (kIsWeb) {
+            final bytes = await pickedFile.readAsBytes();
+            setState(() {
+              _webImages.add(bytes);
+              _imageFiles.add(pickedFile);
+            });
+          } else {
+            setState(() {
+              _imageFiles.add(pickedFile);
+            });
+          }
         }
       }
     } catch (e) {
@@ -114,6 +120,13 @@ class _IncidentFormScreenState extends State<IncidentFormScreen> {
         );
       }
     }
+  }
+
+  void _removeImage(int index) {
+    setState(() {
+      _imageFiles.removeAt(index);
+      if (kIsWeb) _webImages.removeAt(index);
+    });
   }
 
   void _showImageSourceActionSheet(BuildContext context) {
@@ -133,7 +146,7 @@ class _IncidentFormScreenState extends State<IncidentFormScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.photo_library),
-                title: const Text('Galería'),
+                title: const Text('Galería (múltiple)'),
                 onTap: () {
                   Navigator.of(context).pop();
                   _pickImage(ImageSource.gallery);
@@ -207,10 +220,11 @@ class _IncidentFormScreenState extends State<IncidentFormScreen> {
 
   Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
-      if (_imageFile == null) {
+      if (_imageFiles.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Por favor, toma una foto de la incidencia.')),
+              content:
+                  Text('Por favor, añade al menos una foto de la incidencia.')),
         );
         return;
       }
@@ -226,34 +240,23 @@ class _IncidentFormScreenState extends State<IncidentFormScreen> {
       setState(() => _isLoading = true);
 
       try {
-        String? imageUrl;
-        try {
+        final List<String> imageUrls = [];
+
+        for (int i = 0; i < _imageFiles.length; i++) {
+          String? url;
           if (kIsWeb) {
-            imageUrl = await _dbService.uploadImageWeb(_webImage!);
+            url = await _dbService.uploadImageWeb(_webImages[i]);
           } else {
-            imageUrl = await _dbService.uploadImage(File(_imageFile!.path));
+            url = await _dbService.uploadImage(File(_imageFiles[i].path));
           }
-        } catch (e) {
-          debugPrint('Error uploading image: $e');
+          if (url != null) imageUrls.add(url);
         }
 
-        if (imageUrl == null) {
+        if (imageUrls.isEmpty) {
           if (!mounted) return;
           setState(() => _isLoading = false);
-          String errorMsg = 'Error al subir la imagen.';
-          if (kIsWeb) {
-            errorMsg +=
-                ' Esto suele deberse a un problema de CORS en Firebase Storage. Por favor, sigue las instrucciones para configurar CORS.';
-          }
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(errorMsg),
-              duration: const Duration(seconds: 10),
-              action: SnackBarAction(
-                label: 'Cerrar',
-                onPressed: () {},
-              ),
-            ),
+            const SnackBar(content: Text('Error al subir las imágenes.')),
           );
           return;
         }
@@ -262,9 +265,11 @@ class _IncidentFormScreenState extends State<IncidentFormScreen> {
         if (user == null) return;
 
         Incident incident = Incident(
-          id: '', // Firestore generará el ID
-          description: _descriptionController.text,
-          imageUrl: imageUrl,
+          id: '',
+          title: _titleController.text.trim(),
+          description: _descriptionController.text.trim(),
+          imageUrl: imageUrls.first, // Mantenemos el primero como principal
+          imageUrls: imageUrls,
           latitude: _currentPosition!.latitude,
           longitude: _currentPosition!.longitude,
           createdAt: DateTime.now(),
@@ -343,6 +348,22 @@ class _IncidentFormScreenState extends State<IncidentFormScreen> {
                     ],
                     const SizedBox(height: 16),
                     TextFormField(
+                      controller: _titleController,
+                      decoration: const InputDecoration(
+                        labelText: 'Título de la incidencia',
+                        border: OutlineInputBorder(),
+                        counterText: '',
+                      ),
+                      maxLength: 100,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Por favor, introduce un título';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
                       controller: _descriptionController,
                       decoration: const InputDecoration(
                         labelText: 'Descripción',
@@ -358,105 +379,157 @@ class _IncidentFormScreenState extends State<IncidentFormScreen> {
                       },
                     ),
                     const SizedBox(height: 24),
-                    Row(
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Column(
-                            children: [
-                              if (_imageFile != null)
-                                Container(
-                                  height: 150,
-                                  width: double.infinity,
-                                  decoration: BoxDecoration(
-                                    border: Border.all(color: Colors.grey),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: kIsWeb
-                                        ? Image.memory(_webImage!,
-                                            fit: BoxFit.cover)
-                                        : Image.file(File(_imageFile!.path),
-                                            fit: BoxFit.cover),
-                                  ),
-                                )
-                              else
-                                Container(
-                                  height: 150,
-                                  width: double.infinity,
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[200],
-                                    border: Border.all(color: Colors.grey),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Icon(Icons.image,
-                                      size: 50, color: Colors.grey),
-                                ),
-                              const SizedBox(height: 8),
-                              ElevatedButton.icon(
-                                onPressed: () =>
-                                    _showImageSourceActionSheet(context),
-                                icon: const Icon(Icons.camera_alt),
-                                label: const Text('Añadir foto'),
-                                style: ElevatedButton.styleFrom(
-                                    minimumSize:
-                                        const Size(double.infinity, 40)),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Evidencias gráficas (mín. 1):',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                            if (_imageFiles.isEmpty && _isLoading == false)
+                              const Text(
+                                'Obligatorio *',
+                                style: TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold),
                               ),
-                            ],
-                          ),
+                          ],
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            children: [
-                              Container(
-                                height: 150,
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  color: _currentPosition != null
-                                      ? Colors.green[50]
-                                      : Colors.grey[200],
-                                  border: Border.all(
-                                      color: _currentPosition != null
-                                          ? Colors.green
-                                          : Colors.grey),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      _currentPosition != null
-                                          ? Icons.location_on
-                                          : Icons.location_off,
-                                      size: 50,
-                                      color: _currentPosition != null
-                                          ? Colors.green
-                                          : Colors.grey,
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: _imageFiles.isEmpty
+                                  ? Colors.red.withValues(alpha: 0.3)
+                                  : Colors.transparent,
+                              width: 2,
+                            ),
+                          ),
+                          child: SizedBox(
+                            height: 100,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: _imageFiles.length + 1,
+                              itemBuilder: (context, index) {
+                                if (index == _imageFiles.length) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 8.0),
+                                    child: GestureDetector(
+                                      onTap: () =>
+                                          _showImageSourceActionSheet(context),
+                                      child: Container(
+                                        width: 100,
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey[200],
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          border: Border.all(
+                                              color: Colors.grey[400]!),
+                                        ),
+                                        child: const Icon(
+                                            Icons.add_a_photo_outlined,
+                                            color: Colors.grey),
+                                      ),
                                     ),
-                                    if (_currentPosition != null)
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 4.0),
-                                        child: Text(
-                                          'Lat: ${_currentPosition!.latitude.toStringAsFixed(4)}\nLong: ${_currentPosition!.longitude.toStringAsFixed(4)}',
-                                          textAlign: TextAlign.center,
-                                          style: const TextStyle(fontSize: 10),
+                                  );
+                                }
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 8.0),
+                                  child: Stack(
+                                    children: [
+                                      Container(
+                                        width: 100,
+                                        decoration: BoxDecoration(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          image: DecorationImage(
+                                            image: kIsWeb
+                                                ? MemoryImage(_webImages[index])
+                                                : FileImage(File(
+                                                        _imageFiles[index]
+                                                            .path))
+                                                    as ImageProvider,
+                                            fit: BoxFit.cover,
+                                          ),
                                         ),
                                       ),
-                                  ],
+                                      Positioned(
+                                        top: 4,
+                                        right: 4,
+                                        child: GestureDetector(
+                                          onTap: () => _removeImage(index),
+                                          child: Container(
+                                            padding: const EdgeInsets.all(2),
+                                            decoration: const BoxDecoration(
+                                                color: Colors.red,
+                                                shape: BoxShape.circle),
+                                            child: const Icon(Icons.close,
+                                                size: 16, color: Colors.white),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Ubicación del incidente:',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        GestureDetector(
+                          onTap: _getCurrentLocation,
+                          child: Container(
+                            height: 80,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: _currentPosition != null
+                                  ? Colors.green[50]
+                                  : Colors.grey[100],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                  color: _currentPosition != null
+                                      ? Colors.green
+                                      : Colors.grey[300]!),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  _currentPosition != null
+                                      ? Icons.location_on
+                                      : Icons.location_off,
+                                  color: _currentPosition != null
+                                      ? Colors.green
+                                      : Colors.grey,
                                 ),
-                              ),
-                              const SizedBox(height: 8),
-                              ElevatedButton.icon(
-                                onPressed: _getCurrentLocation,
-                                icon: const Icon(Icons.my_location),
-                                label: const Text('Ubicación'),
-                                style: ElevatedButton.styleFrom(
-                                    minimumSize:
-                                        const Size(double.infinity, 40)),
-                              ),
-                            ],
+                                const SizedBox(width: 12),
+                                Text(
+                                  _currentPosition != null
+                                      ? 'Ubicación capturada correctamente'
+                                      : 'Pulsa para capturar ubicación GPS',
+                                  style: TextStyle(
+                                    color: _currentPosition != null
+                                        ? Colors.green[700]
+                                        : Colors.grey[600],
+                                    fontWeight: _currentPosition != null
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],

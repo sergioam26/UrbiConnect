@@ -1,8 +1,13 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:urbi_connect/models/chat_message.dart';
 import 'package:urbi_connect/services/chat_service.dart';
+import 'package:urbi_connect/services/database_service.dart';
 
 class ChatScreen extends StatefulWidget {
   final String incidentId;
@@ -16,7 +21,38 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ChatService _chatService = ChatService();
+  final DatabaseService _dbService = DatabaseService();
   final String _currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+  final ImagePicker _picker = ImagePicker();
+
+  bool _isUploading = false;
+
+  Future<void> _sendImage() async {
+    final XFile? image =
+        await _picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
+    if (image == null) return;
+
+    setState(() => _isUploading = true);
+
+    String? imageUrl;
+    if (kIsWeb) {
+      final bytes = await image.readAsBytes();
+      imageUrl = await _dbService.uploadImageWeb(bytes);
+    } else {
+      imageUrl = await _dbService.uploadImage(File(image.path));
+    }
+
+    if (imageUrl != null) {
+      await _chatService.sendMessage(
+        widget.incidentId,
+        _currentUserId,
+        '',
+        imageUrl: imageUrl,
+      );
+    }
+
+    setState(() => _isUploading = false);
+  }
 
   void _sendMessage() {
     if (_messageController.text.trim().isEmpty) {
@@ -39,6 +75,59 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       body: Column(
         children: [
+          StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('Incidencia')
+                .doc(widget.incidentId)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData || !snapshot.data!.exists) {
+                return const SizedBox();
+              }
+              final data = snapshot.data!.data() as Map<String, dynamic>;
+              final String? imageUrl = data['foto_url'];
+              if (imageUrl == null) {
+                return const SizedBox();
+              }
+
+              return Container(
+                height: 60,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border(
+                      bottom: BorderSide(
+                          color: Colors.grey.withValues(alpha: 0.1))),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(imageUrl,
+                          width: 44, height: 44, fit: BoxFit.cover),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(data['titulo'] ?? 'Incidencia',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 13)),
+                          Text(data['estado'] ?? '',
+                              style: TextStyle(
+                                  fontSize: 11, color: Colors.grey[600])),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
           Expanded(
             child: StreamBuilder<List<ChatMessage>>(
               stream: _chatService.getMessages(widget.incidentId),
@@ -80,6 +169,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
                         return ChatBubble(
                           message: msg.text,
+                          imageUrl: msg.imageUrl,
                           isMe: msg.senderId == _currentUserId,
                           sender: msg.senderId == _currentUserId
                               ? 'Tú'
@@ -125,31 +215,45 @@ class _ChatScreenState extends State<ChatScreen> {
               offset: const Offset(0, -2))
         ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          Expanded(
-            child: TextField(
-              controller: _messageController,
-              decoration: InputDecoration(
-                hintText: 'Escribe un mensaje...',
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide.none),
-                filled: true,
-                fillColor: Colors.grey[100],
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          if (_isUploading)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8.0),
+              child: LinearProgressIndicator(),
+            ),
+          Row(
+            children: [
+              IconButton(
+                icon:
+                    const Icon(Icons.image_outlined, color: Color(0xFF6750A4)),
+                onPressed: _isUploading ? null : _sendImage,
               ),
-              onSubmitted: (_) => _sendMessage(),
-            ),
-          ),
-          const SizedBox(width: 8),
-          CircleAvatar(
-            backgroundColor: const Color(0xFF6750A4),
-            child: IconButton(
-              icon: const Icon(Icons.send, color: Colors.white),
-              onPressed: _sendMessage,
-            ),
+              Expanded(
+                child: TextField(
+                  controller: _messageController,
+                  decoration: InputDecoration(
+                    hintText: 'Escribe un mensaje...',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide.none),
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  ),
+                  onSubmitted: (_) => _sendMessage(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              CircleAvatar(
+                backgroundColor: const Color(0xFF6750A4),
+                child: IconButton(
+                  icon: const Icon(Icons.send, color: Colors.white),
+                  onPressed: _sendMessage,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -196,6 +300,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
 class ChatBubble extends StatelessWidget {
   final String message;
+  final String? imageUrl;
   final bool isMe;
   final String sender;
   final String? avatarUrl;
@@ -204,6 +309,7 @@ class ChatBubble extends StatelessWidget {
   const ChatBubble({
     super.key,
     required this.message,
+    this.imageUrl,
     required this.isMe,
     required this.sender,
     this.avatarUrl,
@@ -237,7 +343,7 @@ class ChatBubble extends StatelessWidget {
               margin: const EdgeInsets.only(bottom: 16),
               padding: const EdgeInsets.all(12),
               constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.65),
+                  maxWidth: MediaQuery.of(context).size.width * 0.7),
               decoration: BoxDecoration(
                 color: isMe ? const Color(0xFF6750A4) : Colors.grey[200],
                 borderRadius: BorderRadius.only(
@@ -259,11 +365,30 @@ class ChatBubble extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    message,
-                    style:
-                        TextStyle(color: isMe ? Colors.white : Colors.black87),
-                  ),
+                  if (imageUrl != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4.0),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          imageUrl!,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return const SizedBox(
+                              height: 150,
+                              child: Center(child: CircularProgressIndicator()),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  if (message.isNotEmpty)
+                    Text(
+                      message,
+                      style: TextStyle(
+                          color: isMe ? Colors.white : Colors.black87),
+                    ),
                 ],
               ),
             ),

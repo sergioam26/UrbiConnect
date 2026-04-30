@@ -2,7 +2,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:urbi_connect/firebase_options.dart';
 import 'package:urbi_connect/screens/auth/login_screen.dart';
@@ -22,6 +25,10 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+  // Inicializar localización para intl
+  await initializeDateFormatting('es_ES', null);
+  Intl.defaultLocale = 'es_ES';
+
   // Configurar manejador de mensajes en segundo plano
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
@@ -40,6 +47,15 @@ class UrbiConnectApp extends StatelessWidget {
       child: MaterialApp(
         title: 'UrbiConnect',
         debugShowCheckedModeBanner: false,
+        locale: const Locale('es', 'ES'),
+        supportedLocales: const [
+          Locale('es', 'ES'),
+        ],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         theme: ThemeData(
           useMaterial3: true,
           colorScheme: ColorScheme.fromSeed(

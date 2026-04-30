@@ -14,17 +14,17 @@ class AnalyticsScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Resumen General',
+            Text('Resumen general',
                 style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
             _buildUserStats(),
             const SizedBox(height: 24),
-            Text('Estado de Incidencias',
+            Text('Estado de incidencias',
                 style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
             _buildIncidentStats(),
             const SizedBox(height: 24),
-            Text('Actividad por Categorías',
+            Text('Actividad por categorías',
                 style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
             _buildCategoryActivity(),
@@ -41,13 +41,18 @@ class AnalyticsScreen extends StatelessWidget {
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const LinearProgressIndicator();
         final users = snapshot.data!.docs;
-        final citizens = users.where((u) => u.get('rol') == 'Ciudadano').length;
+        final citizens = users
+            .where((u) => u.get('rol').toString().toLowerCase() == 'ciudadano')
+            .length;
         final responsibles = users
             .where((u) =>
-                u.get('rol') == 'Responsable' ||
-                u.get('rol') == 'Responsable Municipal')
+                u.get('rol').toString().toLowerCase() == 'responsable' ||
+                u.get('rol').toString().toLowerCase() ==
+                    'responsable municipal')
             .length;
-        final admins = users.where((u) => u.get('rol') == 'Admin').length;
+        final admins = users
+            .where((u) => u.get('rol').toString().toLowerCase() == 'admin')
+            .length;
 
         return Row(
           children: [
@@ -189,10 +194,13 @@ class AnalyticsScreen extends StatelessWidget {
                 x: i,
                 barRods: [
                   BarChartRodData(
-                      toY: count.toDouble(),
-                      color: Colors.indigo,
-                      width: 16,
-                      borderRadius: BorderRadius.circular(4))
+                    toY: count == 0 ? 1.0 : count.toDouble(),
+                    color: count == 0
+                        ? Colors.transparent
+                        : Theme.of(context).primaryColor,
+                    width: 16,
+                    borderRadius: BorderRadius.circular(4),
+                  )
                 ],
               ));
             }
@@ -202,14 +210,101 @@ class AnalyticsScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(20.0),
                 child: Column(
                   children: [
-                    SizedBox(
-                      height: 200,
-                      child: BarChart(
-                        BarChartData(
-                          barGroups: groups,
-                          titlesData: const FlTitlesData(show: false),
-                          gridData: const FlGridData(show: false),
-                          borderData: FlBorderData(show: false),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: SizedBox(
+                        height: 300,
+                        width: cats.length * 80.0 >
+                                MediaQuery.of(context).size.width
+                            ? cats.length * 80.0
+                            : MediaQuery.of(context).size.width - 48,
+                        child: BarChart(
+                          BarChartData(
+                            barGroups: groups,
+                            alignment: BarChartAlignment.spaceAround,
+                            maxY: groups.isEmpty
+                                ? 10
+                                : groups
+                                        .map((e) => e.barRods[0].toY)
+                                        .reduce((a, b) => a > b ? a : b) +
+                                    2,
+                            titlesData: FlTitlesData(
+                              show: true,
+                              bottomTitles: AxisTitles(
+                                sideTitles: SideTitles(
+                                  showTitles: true,
+                                  getTitlesWidget: (value, meta) {
+                                    int index = value.toInt();
+                                    if (index >= 0 && index < cats.length) {
+                                      String name =
+                                          cats[index].get('nombre') ?? '';
+                                      return SideTitleWidget(
+                                        axisSide: meta.axisSide,
+                                        space: 12,
+                                        child: SizedBox(
+                                          width: 70,
+                                          child: Text(
+                                            name,
+                                            style: const TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                height: 1.1),
+                                            textAlign: TextAlign.center,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                    return const SizedBox();
+                                  },
+                                  reservedSize: 45,
+                                ),
+                              ),
+                              leftTitles: const AxisTitles(
+                                  sideTitles: SideTitles(showTitles: false)),
+                              topTitles: const AxisTitles(
+                                  sideTitles: SideTitles(showTitles: false)),
+                              rightTitles: const AxisTitles(
+                                  sideTitles: SideTitles(showTitles: false)),
+                            ),
+                            gridData: const FlGridData(show: false),
+                            borderData: FlBorderData(show: false),
+                            barTouchData: BarTouchData(
+                              touchTooltipData: BarTouchTooltipData(
+                                tooltipBgColor: Theme.of(context).primaryColor,
+                                getTooltipItem:
+                                    (group, groupIndex, rod, rodIndex) {
+                                  String catName =
+                                      cats[groupIndex].get('nombre') ?? '';
+                                  int realCount = rod.toY <= 1.0 &&
+                                          incs
+                                              .where((inc) =>
+                                                  inc.get('id_categoria') ==
+                                                  cats[groupIndex].id)
+                                              .isEmpty
+                                      ? 0
+                                      : rod.toY.toInt();
+                                  return BarTooltipItem(
+                                    '$catName\n',
+                                    const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12),
+                                    children: [
+                                      TextSpan(
+                                        text: '$realCount incidencias',
+                                        style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w500),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),

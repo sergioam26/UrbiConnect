@@ -9,34 +9,58 @@ import 'package:urbi_connect/screens/incidents/chat_screen.dart';
 import 'package:urbi_connect/screens/incidents/incident_edit_screen.dart';
 import 'package:urbi_connect/services/database_service.dart';
 
-class IncidentDetailScreen extends StatelessWidget {
+class IncidentDetailScreen extends StatefulWidget {
   final Incident incident;
 
   const IncidentDetailScreen({super.key, required this.incident});
 
   @override
+  State<IncidentDetailScreen> createState() => _IncidentDetailScreenState();
+}
+
+class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
+  @override
   Widget build(BuildContext context) {
+    final List<String> allImages = widget.incident.imageUrls ??
+        (widget.incident.imageUrl != null ? [widget.incident.imageUrl!] : []);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Detalle de incidencia')),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (incident.imageUrl != null)
-              CachedNetworkImage(
-                imageUrl: incident.imageUrl!,
+            if (allImages.isNotEmpty)
+              SizedBox(
                 height: 250,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-                  height: 250,
-                  color: Colors.grey[200],
-                  child: const Center(child: CircularProgressIndicator()),
-                ),
-                errorWidget: (context, url, error) => Container(
-                  height: 250,
-                  color: Colors.grey[200],
-                  child: const Icon(Icons.error),
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: allImages.length,
+                  itemBuilder: (context, index) {
+                    return GestureDetector(
+                      onTap: () => _showFullImage(context, allImages[index]),
+                      child: Container(
+                        width: MediaQuery.of(context).size.width,
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(0),
+                          child: CachedNetworkImage(
+                            imageUrl: allImages[index],
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Container(
+                              color: Colors.grey[200],
+                              child: const Center(
+                                  child: CircularProgressIndicator()),
+                            ),
+                            errorWidget: (context, url, error) => Container(
+                              color: Colors.grey[200],
+                              child: const Icon(Icons.error),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               )
             else
@@ -55,6 +79,16 @@ class IncidentDetailScreen extends StatelessWidget {
                   ],
                 ),
               ),
+            if (allImages.length > 1)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Center(
+                  child: Text(
+                    'Desliza para ver más imágenes (${allImages.length})',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  ),
+                ),
+              ),
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
@@ -63,11 +97,22 @@ class IncidentDetailScreen extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _buildStatusChip(incident.status),
-                      Text(
-                        DateFormat('dd/MM/yyyy HH:mm')
-                            .format(incident.createdAt),
-                        style: const TextStyle(color: Colors.grey),
+                      _buildStatusChip(widget.incident.status),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            'Reportado: ${DateFormat('dd/MM/yyyy HH:mm').format(widget.incident.createdAt)}',
+                            style: const TextStyle(
+                                color: Colors.grey, fontSize: 12),
+                          ),
+                          if (widget.incident.updatedAt != null)
+                            Text(
+                              'Editado: ${DateFormat('dd/MM/yyyy HH:mm').format(widget.incident.updatedAt!)}',
+                              style: const TextStyle(
+                                  color: Colors.grey, fontSize: 12),
+                            ),
+                        ],
                       ),
                     ],
                   ),
@@ -75,10 +120,10 @@ class IncidentDetailScreen extends StatelessWidget {
                   FutureBuilder<DocumentSnapshot>(
                     future: FirebaseFirestore.instance
                         .collection('Categoria')
-                        .doc(incident.categoryId)
+                        .doc(widget.incident.categoryId)
                         .get(),
                     builder: (context, snapshot) {
-                      String catName = incident.categoryId;
+                      String catName = widget.incident.categoryId;
                       if (snapshot.hasData && snapshot.data!.exists) {
                         catName = snapshot.data!.get('nombre');
                       }
@@ -93,13 +138,22 @@ class IncidentDetailScreen extends StatelessWidget {
                     },
                   ),
                   const SizedBox(height: 8),
+                  Text(
+                    widget.incident.title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   const Text(
                     'Descripción:',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    incident.description,
+                    widget.incident.description,
                     style: const TextStyle(fontSize: 16),
                   ),
                   const SizedBox(height: 24),
@@ -111,14 +165,14 @@ class IncidentDetailScreen extends StatelessWidget {
                   FutureBuilder<DocumentSnapshot>(
                     future: FirebaseFirestore.instance
                         .collection('users')
-                        .doc(incident.userId)
+                        .doc(widget.incident.userId)
                         .get(),
                     builder: (context, userSnap) {
                       if (userSnap.connectionState == ConnectionState.waiting) {
                         return const Text('Cargando reportero...');
                       }
                       if (!userSnap.hasData || !userSnap.data!.exists) {
-                        return Text(incident.userId,
+                        return Text(widget.incident.userId,
                             style: const TextStyle(color: Colors.grey));
                       }
 
@@ -147,9 +201,10 @@ class IncidentDetailScreen extends StatelessWidget {
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
-                  if (incident.latitude != 0 && incident.longitude != 0)
+                  if (widget.incident.latitude != 0 &&
+                      widget.incident.longitude != 0)
                     Container(
-                      key: ValueKey('map_cont_${incident.id}'),
+                      key: ValueKey('map_cont_${widget.incident.id}'),
                       height: 250,
                       width: double.infinity,
                       decoration: BoxDecoration(
@@ -159,19 +214,19 @@ class IncidentDetailScreen extends StatelessWidget {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: GoogleMap(
-                          key: ValueKey('map_${incident.id}'),
+                          key: ValueKey('map_${widget.incident.id}'),
                           initialCameraPosition: CameraPosition(
-                            target:
-                                LatLng(incident.latitude, incident.longitude),
+                            target: LatLng(widget.incident.latitude,
+                                widget.incident.longitude),
                             zoom: 15,
                           ),
                           markers: {
                             Marker(
                               markerId: const MarkerId('incident_loc'),
-                              position:
-                                  LatLng(incident.latitude, incident.longitude),
+                              position: LatLng(widget.incident.latitude,
+                                  widget.incident.longitude),
                               infoWindow:
-                                  InfoWindow(title: incident.categoryId),
+                                  InfoWindow(title: widget.incident.categoryId),
                             ),
                           },
                           scrollGesturesEnabled: true,
@@ -197,7 +252,7 @@ class IncidentDetailScreen extends StatelessWidget {
                     title: const Text('Enviar recordatorio al ayuntamiento'),
                     onTap: () async {
                       final success =
-                          await DatabaseService().sendReminder(incident);
+                          await DatabaseService().sendReminder(widget.incident);
 
                       if (context.mounted) {
                         if (success) {
@@ -226,13 +281,14 @@ class IncidentDetailScreen extends StatelessWidget {
                         context,
                         MaterialPageRoute(
                           builder: (context) =>
-                              ChatScreen(incidentId: incident.id),
+                              ChatScreen(incidentId: widget.incident.id),
                         ),
                       );
                     },
                   ),
                   if (FirebaseAuth.instance.currentUser?.uid ==
-                      incident.userId) ...[
+                          widget.incident.userId &&
+                      widget.incident.status.toLowerCase() != 'resuelta') ...[
                     const SizedBox(height: 8),
                     ListTile(
                       leading: const Icon(Icons.edit_note_rounded,
@@ -242,14 +298,10 @@ class IncidentDetailScreen extends StatelessWidget {
                         final result = await Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (_) =>
-                                  IncidentEditScreen(incident: incident)),
+                              builder: (_) => IncidentEditScreen(
+                                  incident: widget.incident)),
                         );
                         if (result == true) {
-                          // Opcional: recargar datos o simplemente volver.
-                          // Como pasamos el objeto Incident, para ver cambios en vivo
-                          // en esta pantalla necesitaríamos un State o un Stream.
-                          // Por ahora, cerramos para que se vea en la lista.
                           if (context.mounted) Navigator.pop(context);
                         }
                       },
@@ -262,10 +314,48 @@ class IncidentDetailScreen extends StatelessWidget {
                       onTap: () => _confirmDelete(context),
                     ),
                   ],
+                  if (FirebaseAuth.instance.currentUser?.uid ==
+                          widget.incident.userId &&
+                      widget.incident.status.toLowerCase() == 'resuelta')
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: Text(
+                        'Esta incidencia ha sido resuelta y no se puede editar ni eliminar.',
+                        style: TextStyle(
+                            color: Colors.grey[600],
+                            fontStyle: FontStyle.italic,
+                            fontSize: 13),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
                 ],
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showFullImage(BuildContext context, String imageUrl) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.close, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              child: Image.network(imageUrl),
+            ),
+          ),
         ),
       ),
     );
@@ -307,8 +397,8 @@ class IncidentDetailScreen extends StatelessWidget {
                 return;
               }
 
-              await DatabaseService()
-                  .deleteIncident(incident.id, reasonController.text.trim());
+              await DatabaseService().deleteIncident(
+                  widget.incident.id, reasonController.text.trim());
               if (context.mounted) {
                 Navigator.pop(context); // Cerrar diálogo
                 Navigator.pop(context); // Volver a la lista

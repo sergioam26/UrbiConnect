@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -12,6 +13,7 @@ import 'admin/category_management_screen.dart';
 import 'admin/user_management_screen.dart';
 import 'incidents/incident_form_screen.dart';
 import 'incidents/incident_list_screen.dart';
+import 'messages/message_center_screen.dart';
 import 'notifications/notification_list_screen.dart';
 import 'profile/profile_screen.dart';
 import 'support/support_screen.dart';
@@ -36,18 +38,23 @@ class _HomeScreenState extends State<HomeScreen> {
     final notificationService = NotificationService();
     await notificationService.initNotifications();
     await notificationService.updateTokenInFirestore();
+    if (mounted) {
+      notificationService.setupInteractedMessages(context);
+    }
   }
 
   List<Widget> _getPages(bool isAdmin) {
     if (isAdmin) {
       return [
         const AdminDashboard(),
+        const MessageCenterScreen(),
         const NotificationListScreen(),
         const ProfileScreen(),
       ];
     }
     return [
       const IncidentListScreen(),
+      const MessageCenterScreen(),
       const NotificationListScreen(),
       const ProfileScreen(),
     ];
@@ -64,9 +71,10 @@ class _HomeScreenState extends State<HomeScreen> {
       stream: DatabaseService().getUserProfile(user.uid),
       builder: (context, profileSnapshot) {
         final profile = profileSnapshot.data;
-        final isAdmin = profile?.role == 'Admin';
-        final isResponsible = profile?.role == 'Responsable' ||
-            profile?.role == 'Responsable Municipal';
+        final role = profile?.role.toLowerCase() ?? '';
+        final isAdmin = role == 'admin';
+        final isResponsible =
+            role == 'responsable' || role == 'responsable municipal';
 
         final pages = _getPages(isAdmin);
 
@@ -170,6 +178,35 @@ class _HomeScreenState extends State<HomeScreen> {
                   label: isAdmin ? 'Gestión' : 'Inicio',
                 ),
                 NavigationDestination(
+                  icon: StreamBuilder<QuerySnapshot>(
+                    stream: isAdmin
+                        ? FirebaseFirestore.instance
+                            .collection('Soporte')
+                            .where('admin_leido', isEqualTo: false)
+                            .snapshots()
+                        : FirebaseFirestore.instance
+                            .collection('Soporte')
+                            .where('id_usuario', isEqualTo: user.uid)
+                            .where('not_admin_leido', isEqualTo: false)
+                            .snapshots(),
+                    builder: (context, snapshot) {
+                      int count = snapshot.data?.docs.length ?? 0;
+                      // Si el admin está viendo mensajes, tal vez deberíamos filtrar los chats "resuelta" si el usuario así lo cree?
+                      // Pero "leído" es independiente del estado.
+                      if (count > 0) {
+                        return Badge.count(
+                          count: count > 99 ? 99 : count,
+                          child: const Icon(Icons.chat_bubble_outline_rounded),
+                        );
+                      }
+                      return const Icon(Icons.chat_bubble_outline_rounded);
+                    },
+                  ),
+                  selectedIcon: Icon(Icons.chat_bubble_rounded,
+                      color: Theme.of(context).colorScheme.primary),
+                  label: 'Mensajes',
+                ),
+                NavigationDestination(
                   icon: StreamBuilder<int>(
                     stream: NotificationService().getUnreadCount(user.uid),
                     builder: (context, snapshot) {
@@ -183,21 +220,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       return const Icon(Icons.notifications_none_rounded);
                     },
                   ),
-                  selectedIcon: StreamBuilder<int>(
-                    stream: NotificationService().getUnreadCount(user.uid),
-                    builder: (context, snapshot) {
-                      final count = snapshot.data ?? 0;
-                      if (count > 0) {
-                        return Badge.count(
-                          count: count,
-                          child: Icon(Icons.notifications_rounded,
-                              color: Theme.of(context).colorScheme.primary),
-                        );
-                      }
-                      return Icon(Icons.notifications_rounded,
-                          color: Theme.of(context).colorScheme.primary);
-                    },
-                  ),
+                  selectedIcon: const Icon(Icons.notifications_rounded),
                   label: 'Buzón',
                 ),
                 const NavigationDestination(
@@ -257,7 +280,7 @@ class AdminDashboard extends StatelessWidget {
           _buildAdminCard(
             context,
             title: 'Categorías',
-            subtitle: 'Configuración tipográfica de incidencias',
+            subtitle: 'Configuración de tipos de incidencia',
             icon: Icons.category_rounded,
             color: Colors.indigo[600]!,
             onTap: () => Navigator.push(
@@ -281,7 +304,7 @@ class AdminDashboard extends StatelessWidget {
           const SizedBox(height: 16),
           _buildAdminCard(
             context,
-            title: 'Soporte Directo',
+            title: 'Soporte técnico',
             subtitle: 'Atención al ciudadano UrbiConnect',
             icon: Icons.support_agent_rounded,
             color: Colors.orange[700]!,

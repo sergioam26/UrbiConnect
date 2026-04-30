@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:intl/intl.dart';
 import 'package:urbi_connect/models/incident.dart';
 import 'package:urbi_connect/screens/incidents/chat_screen.dart';
 import 'package:urbi_connect/services/database_service.dart';
@@ -24,6 +25,30 @@ class _ResponsibleIncidentDetailScreenState
   void initState() {
     super.initState();
     _currentStatus = widget.incident.status;
+  }
+
+  void _showFullImage(BuildContext context, String imageUrl) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.close, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              child: Image.network(imageUrl),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _updateStatus(String? newStatus) async {
@@ -77,14 +102,42 @@ class _ResponsibleIncidentDetailScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (widget.incident.imageUrl != null)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  widget.incident.imageUrl!,
-                  height: 200,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
+            if ((widget.incident.imageUrls ?? []).isNotEmpty)
+              SizedBox(
+                height: 200,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: widget.incident.imageUrls!.length,
+                  itemBuilder: (context, index) {
+                    return GestureDetector(
+                      onTap: () => _showFullImage(
+                          context, widget.incident.imageUrls![index]),
+                      child: Container(
+                        width: MediaQuery.of(context).size.width - 32,
+                        margin: const EdgeInsets.only(right: 8),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.network(
+                            widget.incident.imageUrls![index],
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              )
+            else if (widget.incident.imageUrl != null)
+              GestureDetector(
+                onTap: () => _showFullImage(context, widget.incident.imageUrl!),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    widget.incident.imageUrl!,
+                    height: 200,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
             const SizedBox(height: 16),
@@ -118,6 +171,16 @@ class _ResponsibleIncidentDetailScreenState
             const SizedBox(height: 24),
             const Divider(),
             const SizedBox(height: 16),
+            _buildDetailRow(
+                'Reportado el:',
+                DateFormat('dd/MM/yyyy HH:mm')
+                    .format(widget.incident.createdAt)),
+            if (widget.incident.updatedAt != null)
+              _buildDetailRow(
+                  'Editado el:',
+                  DateFormat('dd/MM/yyyy HH:mm')
+                      .format(widget.incident.updatedAt!)),
+            _buildDetailRow('Título:', widget.incident.title),
             FutureBuilder<DocumentSnapshot>(
               future: FirebaseFirestore.instance
                   .collection('Categoria')

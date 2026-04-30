@@ -71,6 +71,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         await picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
 
     if (pickedFile != null) {
+      if (!mounted) return;
       setState(() => _isLoading = true);
       final authService = Provider.of<AuthService>(context, listen: false);
       final user = FirebaseAuth.instance.currentUser;

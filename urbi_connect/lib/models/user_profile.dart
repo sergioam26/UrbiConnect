@@ -35,7 +35,7 @@ class UserProfile {
       surnames: data['apellidos'] ?? '',
       email: data['email'] ?? '',
       username: data['usuario'] ?? '',
-      role: data['rol'] ?? 'Ciudadano',
+      role: (data['rol'] ?? 'ciudadano').toString().toLowerCase(),
       profilePhoto: data['foto_perfil'],
       categories: categories,
       pushToken: data['token_push'],

@@ -78,18 +78,18 @@ class AuthService with ChangeNotifier {
             .collection('users')
             .where('email', isEqualTo: email)
             .get();
-        String role = 'Ciudadano';
+        String role = 'ciudadano';
 
         // Default Admin for the project owner
         if (email == 'sergioalgmir@gmail.com') {
-          role = 'Admin';
+          role = 'admin';
         }
 
         String? category;
 
         if (preProfileQuery.docs.isNotEmpty) {
           final preDoc = preProfileQuery.docs.first;
-          role = preDoc.get('rol') ?? 'Ciudadano';
+          role = (preDoc.get('rol') ?? 'ciudadano').toString().toLowerCase();
           category = preDoc.data().containsKey('id_categoria')
               ? preDoc.get('id_categoria')
               : null;
@@ -121,18 +121,32 @@ class AuthService with ChangeNotifier {
   // Sign in with Google
   Future<String?> signInWithGoogle() async {
     try {
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) return null; // El usuario canceló
+      UserCredential userCredential;
 
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
-      final AuthCredential credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
+      if (kIsWeb) {
+        // En web, usamos signInWithPopup directamente con Firebase Auth.
+        // Esto es más robusto para entornos de iframe y maneja mejor los orígenes autorizados.
+        final GoogleAuthProvider googleProvider = GoogleAuthProvider();
+        googleProvider.setCustomParameters({'prompt': 'select_account'});
+        userCredential = await _auth.signInWithPopup(googleProvider);
+      } else {
+        // En móvil/nativo, usamos el flujo normal de google_sign_in
+        final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+        if (googleUser == null) {
+          return null; // El usuario canceló
+        }
 
-      UserCredential result = await _auth.signInWithCredential(credential);
-      User? user = result.user;
+        final GoogleSignInAuthentication googleAuth =
+            await googleUser.authentication;
+        final AuthCredential credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+
+        userCredential = await _auth.signInWithCredential(credential);
+      }
+
+      User? user = userCredential.user;
 
       if (user != null) {
         // Check if user exists in Firestore, if not, create profile
@@ -146,11 +160,11 @@ class AuthService with ChangeNotifier {
               .collection('users')
               .where('email', isEqualTo: email)
               .get();
-          String role = 'Ciudadano';
+          String role = 'ciudadano';
 
           // Default Admin for the project owner
           if (email == 'sergioalgmir@gmail.com') {
-            role = 'Admin';
+            role = 'admin';
           }
 
           String? category;
@@ -158,7 +172,7 @@ class AuthService with ChangeNotifier {
 
           if (preProfileQuery.docs.isNotEmpty) {
             final preDoc = preProfileQuery.docs.first;
-            role = preDoc.get('rol') ?? 'Ciudadano';
+            role = (preDoc.get('rol') ?? 'ciudadano').toString().toLowerCase();
             category = preDoc.data().containsKey('id_categoria')
                 ? preDoc.get('id_categoria')
                 : null;
@@ -197,7 +211,9 @@ class AuthService with ChangeNotifier {
   // Check if user has a password set (Email provider)
   bool get hasPassword {
     final user = _auth.currentUser;
-    if (user == null) return false;
+    if (user == null) {
+      return false;
+    }
     return user.providerData.any((p) => p.providerId == 'password');
   }
 
@@ -243,12 +259,15 @@ class AuthService with ChangeNotifier {
   }) async {
     try {
       final user = _auth.currentUser;
-      if (user == null) return 'No hay usuario autenticado';
+      if (user == null) {
+        return 'No hay usuario autenticado';
+      }
 
       // 1. Handle Email Change if provided and different
       if (email != null && email != user.email) {
-        if (currentPassword == null)
+        if (currentPassword == null) {
           return 'Se requiere la contraseña para cambiar el email';
+        }
 
         // Re-authenticate
         AuthCredential credential = EmailAuthProvider.credential(
@@ -269,8 +288,12 @@ class AuthService with ChangeNotifier {
         'usuario': username,
       };
 
-      if (email != null) updates['email'] = email;
-      if (photoUrl != null) updates['foto_perfil'] = photoUrl;
+      if (email != null) {
+        updates['email'] = email;
+      }
+      if (photoUrl != null) {
+        updates['foto_perfil'] = photoUrl;
+      }
 
       await _db.collection('users').doc(uid).update(updates);
 

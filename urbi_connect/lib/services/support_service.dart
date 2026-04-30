@@ -1,39 +1,182 @@
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:urbi_connect/services/notification_service.dart';
 
+enum OperationType {
+  create,
+  update,
+  delete,
+  list,
+  get,
+  write,
+}
+
 class SupportService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final NotificationService _notificationService = NotificationService();
 
-  // Crear ticket de soporte
-  Future<void> createSupportTicket(String description) async {
+  void _handleFirestoreError(Object error, OperationType type, String path) {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    final errInfo = {
+      'error': error.toString(),
+      'operationType': type.toString().split('.').last.toLowerCase(),
+      'path': path,
+      'authInfo': {
+        'userId': user?.uid,
+        'email': user?.email,
+        'emailVerified': user?.emailVerified,
+      }
+    };
+    final jsonErr = jsonEncode(errInfo);
+    debugPrint('Firestore Error: $jsonErr');
+    throw Exception(jsonErr);
+  }
 
-    final docRef = await _db.collection('Soporte').add({
-      'id_usuario': user.uid,
-      'descripcion': description,
-      'fecha': FieldValue.serverTimestamp(),
-      'estado': 'Abierto',
-    });
+  // Crear ticket de soporte
+  Future<String> createSupportTicket(String description,
+      {String? imageUrl}) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return '';
 
-    // Notificar a los administradores
     try {
-      final admins =
-          await _db.collection('users').where('rol', isEqualTo: 'Admin').get();
-      for (var doc in admins.docs) {
-        await _notificationService.sendNotification(
-          userId: doc.id,
-          title: 'Nuevo ticket de soporte',
-          body: 'Un usuario ha reportado un problema: $description',
-          referenceId: docRef.id,
-          type: 'soporte',
-        );
+      final docRef = await _db.collection('Soporte').add({
+        'id_usuario': user.uid,
+        'descripcion': description,
+        'url_imagen': imageUrl,
+        'fecha': FieldValue.serverTimestamp(),
+        'estado': 'Abierto',
+        'admin_leido': false,
+        'not_admin_leido': true,
+      });
+
+      if (imageUrl != null || description.isNotEmpty) {
+        await docRef.collection('Chat').add({
+          'id_emisor': user.uid,
+          'mensaje': description,
+          'url_imagen': imageUrl,
+          'fecha': FieldValue.serverTimestamp(),
+        });
+      }
+
+      // Notificar a los administradores
+      try {
+        final admins = await _db
+            .collection('users')
+            .where('rol', whereIn: ['Admin', 'admin']).get();
+        for (var doc in admins.docs) {
+          await _notificationService.sendNotification(
+            userId: doc.id,
+            title: 'Nuevo ticket de soporte',
+            body: 'Un usuario ha reportado un problema: $description',
+            referenceId: docRef.id,
+            type: 'soporte',
+          );
+        }
+      } catch (e) {
+        debugPrint('Error notificando soporte a admins: $e');
+      }
+      return docRef.id;
+    } catch (e) {
+      _handleFirestoreError(e, OperationType.write, 'Soporte');
+      return '';
+    }
+  }
+
+  // Iniciar chat desde Admin
+  Future<String> startAdminChat(String targetUserId, String message,
+      {String? imageUrl}) async {
+    final admin = FirebaseAuth.instance.currentUser;
+    if (admin == null) return '';
+
+    try {
+      final docRef = await _db.collection('Soporte').add({
+        'id_usuario': targetUserId,
+        'descripcion': message.isNotEmpty ? message : 'Envío de imagen',
+        'url_imagen': imageUrl,
+        'fecha': FieldValue.serverTimestamp(),
+        'estado': 'Abierto',
+        'iniciado_por_admin': true,
+        'admin_leido': true,
+        'not_admin_leido': false,
+      });
+
+      // Primer mensaje
+      await docRef.collection('Chat').add({
+        'id_emisor': admin.uid,
+        'mensaje': message,
+        'url_imagen': imageUrl,
+        'fecha': FieldValue.serverTimestamp(),
+      });
+
+      // Notificar al ciudadano
+      await _notificationService.sendNotification(
+        userId: targetUserId,
+        title: 'Mensaje de administración',
+        body: message,
+        referenceId: docRef.id,
+        type: 'chat_soporte',
+      );
+
+      return docRef.id;
+    } catch (e) {
+      _handleFirestoreError(e, OperationType.write, 'Soporte');
+      return '';
+    }
+  }
+
+  // Crear ticket para usuario no autenticado (Invitado)
+  Future<void> createGuestSupportTicket({
+    required String name,
+    required String surname,
+    required String email,
+    required String message,
+    String? imageUrl,
+  }) async {
+    try {
+      final docRef = await _db.collection('Soporte').add({
+        'nombre_invitado': name,
+        'apellidos_invitado': surname,
+        'email_invitado': email,
+        'descripcion': message,
+        'url_imagen': imageUrl,
+        'fecha': FieldValue.serverTimestamp(),
+        'estado': 'Abierto',
+        'es_invitado': true,
+        'admin_leido': false,
+        'not_admin_leido': true,
+      });
+
+      if (imageUrl != null || message.isNotEmpty) {
+        await docRef.collection('Chat').add({
+          'id_emisor': 'guest',
+          'mensaje': message,
+          'url_imagen': imageUrl,
+          'fecha': FieldValue.serverTimestamp(),
+        });
+      }
+
+      // Notificar a admins
+      try {
+        final admins = await _db
+            .collection('users')
+            .where('rol', whereIn: ['Admin', 'admin']).get();
+        for (var admin in admins.docs) {
+          await _notificationService.sendNotification(
+            userId: admin.id,
+            title: 'Nuevo ticket de invitado',
+            body: 'Invitado $name $surname ha enviado un ticket: $message',
+            referenceId: docRef.id,
+            type: 'soporte',
+          );
+        }
+      } catch (e) {
+        debugPrint('Error notificando soporte de invitado a admins: $e');
       }
     } catch (e) {
-      debugPrint('Error notificando soporte a admins: $e');
+      _handleFirestoreError(e, OperationType.write, 'Soporte');
     }
   }
 
@@ -42,56 +185,183 @@ class SupportService {
     return _db
         .collection('Soporte')
         .where('id_usuario', isEqualTo: uid)
-        .orderBy('fecha', descending: true)
-        .snapshots();
+        .snapshots()
+        .handleError(
+            (e) => _handleFirestoreError(e, OperationType.list, 'Soporte'));
   }
 
   // Stream de todos los tickets para admin
   Stream<QuerySnapshot> getAllTickets() {
-    return _db
-        .collection('Soporte')
-        .orderBy('fecha', descending: true)
-        .snapshots();
+    return _db.collection('Soporte').snapshots().handleError(
+        (e) => _handleFirestoreError(e, OperationType.list, 'Soporte'));
+  }
+
+  // Marcar como leído
+  Future<void> markAsRead(String ticketId, bool isAdmin) async {
+    try {
+      await _db.collection('Soporte').doc(ticketId).update({
+        isAdmin ? 'admin_leido' : 'not_admin_leido': true,
+      });
+    } catch (e) {
+      debugPrint('Error al marcar soporte como leído: $e');
+    }
   }
 
   // Actualizar estado de ticket
   Future<void> updateTicketStatus(String ticketId, String status) async {
-    await _db.collection('Soporte').doc(ticketId).update({'estado': status});
+    try {
+      final Map<String, dynamic> updates = {'estado': status};
+      if (status == 'Cerrado') {
+        updates['fecha_cierre'] = FieldValue.serverTimestamp();
+      }
+
+      await _db.collection('Soporte').doc(ticketId).update(updates);
+
+      // Notificar al usuario del cambio de estado
+      try {
+        final ticket = await _db.collection('Soporte').doc(ticketId).get();
+        final userId = ticket.get('id_usuario');
+
+        await _notificationService.sendNotification(
+          userId: userId,
+          title: 'Actualización de soporte',
+          body:
+              'El estado de tu ticket #${ticketId.substring(0, 5).toUpperCase()} ha cambiado a: $status',
+          referenceId: ticketId,
+          type: 'soporte',
+        );
+      } catch (e) {
+        debugPrint('Error notificando cambio de estado: $e');
+      }
+    } catch (e) {
+      _handleFirestoreError(e, OperationType.update, 'Soporte/$ticketId');
+    }
+  }
+
+  // Lógica de limpieza automática según requerimientos
+  Future<void> performAutoCleanup() async {
+    final now = DateTime.now();
+
+    // 1. Soporte cerrado hace más de 15 días
+    final fifteenDaysAgo = now.subtract(const Duration(days: 15));
+    final oldTickets = await _db
+        .collection('Soporte')
+        .where('estado', isEqualTo: 'Cerrado')
+        .where('fecha_cierre', isLessThan: Timestamp.fromDate(fifteenDaysAgo))
+        .get();
+
+    for (var doc in oldTickets.docs) {
+      // Eliminar mensajes del subcollection primero
+      final messages = await doc.reference.collection('Chat').get();
+      for (var msg in messages.docs) {
+        await msg.reference.delete();
+      }
+      await doc.reference.delete();
+    }
+
+    // 2. Incidencias resueltas hace más de 60 días o marcadas como eliminadas
+    final sixtyDaysAgo = now.subtract(const Duration(days: 60));
+
+    // Buscar resueltas antiguas
+    final oldIncidents = await _db
+        .collection('Incidencia')
+        .where('estado', isEqualTo: 'Resuelta')
+        .where('fecha_resolucion', isLessThan: Timestamp.fromDate(sixtyDaysAgo))
+        .get();
+
+    // Buscar eliminadas (soft delete)
+    final deletedIncidents = await _db
+        .collection('Incidencia')
+        .where('es_eliminada', isEqualTo: true)
+        .get();
+
+    final allToCleanup = [...oldIncidents.docs, ...deletedIncidents.docs];
+
+    for (var doc in allToCleanup) {
+      // Eliminar mensajes de la incidencia (subcolección Chat)
+      final messages = await doc.reference.collection('Chat').get();
+      for (var msg in messages.docs) {
+        await msg.reference.delete();
+      }
+
+      // Si estaba resuelta hace 60 días, borramos el documento entero
+      // Si está marcada como eliminada (soft delete), borramos el documento entero para limpieza física definitiva
+      await doc.reference.delete();
+    }
+
+    // 3. Notificaciones enviadas por admin con más de 1 año (para admins)
+    // Se gestionará mediante un flag 'oculto_para_admin' o similar si se quiere mantener para el usuario,
+    // o borrado físico si es broadcast. El usuario dice "borrar las notificaciones enviadas por el admin de su pantalla de mensajes al año".
+    final oneYearAgo = now.subtract(const Duration(days: 365));
+    final oldNotifications = await _db
+        .collection('Notificaciones')
+        .where('tipo', isEqualTo: 'broadcast')
+        .where('fecha_creacion', isLessThan: Timestamp.fromDate(oneYearAgo))
+        .get();
+
+    for (var doc in oldNotifications.docs) {
+      await doc.reference.delete();
+    }
   }
 
   // Enviar mensaje en el chat de soporte
-  Future<void> sendSupportMessage(
-      String ticketId, String senderId, String text) async {
-    await _db.collection('Soporte').doc(ticketId).collection('Chat').add({
-      'id_emisor': senderId,
-      'mensaje': text,
-      'fecha': FieldValue.serverTimestamp(),
-    });
-
-    // Notificar a la otra parte
+  Future<void> sendSupportMessage(String ticketId, String senderId, String text,
+      {String? imageUrl}) async {
     try {
-      final ticket = await _db.collection('Soporte').doc(ticketId).get();
-      final userId = ticket.get('id_usuario');
-      final targetId = (senderId == userId) ? await _getAdminId() : userId;
+      await _db.collection('Soporte').doc(ticketId).collection('Chat').add({
+        'id_emisor': senderId,
+        'mensaje': text,
+        'url_imagen': imageUrl,
+        'fecha': FieldValue.serverTimestamp(),
+      });
 
-      if (targetId != null) {
-        await _notificationService.sendNotification(
-          userId: targetId,
-          title: 'Nuevo mensaje en soporte',
-          body: text,
-          referenceId: ticketId,
-          type: 'chat_soporte',
-        );
+      // Actualizar flags de lectura
+      final ticket = await _db.collection('Soporte').doc(ticketId).get();
+      final data = ticket.data() as Map<String, dynamic>;
+      final String userId = data['id_usuario'] ?? '';
+
+      bool isSenderAdmin = false;
+      if (senderId != userId) {
+        final senderDoc = await _db.collection('users').doc(senderId).get();
+        if (senderDoc.exists) {
+          final String role =
+              (senderDoc.get('rol') ?? '').toString().toLowerCase();
+          if (role == 'admin') {
+            isSenderAdmin = true;
+          }
+        }
+      }
+
+      await _db.collection('Soporte').doc(ticketId).update({
+        isSenderAdmin ? 'not_admin_leido' : 'admin_leido': false,
+        'fecha': FieldValue.serverTimestamp(), // Actualizar fecha de actividad
+      });
+
+      // Notificar a la otra parte
+      try {
+        final targetId = isSenderAdmin ? userId : await _getAdminId();
+
+        if (targetId != null) {
+          await _notificationService.sendNotification(
+            userId: targetId,
+            title: 'Nuevo mensaje en soporte',
+            body: imageUrl != null ? '📷 Foto enviada' : text,
+            referenceId: ticketId,
+            type: 'chat_soporte',
+          );
+        }
+      } catch (e) {
+        debugPrint('Error notificando mensaje de soporte: $e');
       }
     } catch (e) {
-      debugPrint('Error notificando mensaje de soporte: $e');
+      _handleFirestoreError(e, OperationType.write, 'Soporte/$ticketId/Chat');
     }
   }
 
   Future<String?> _getAdminId() async {
     final admins = await _db
         .collection('users')
-        .where('rol', isEqualTo: 'Admin')
+        .where('rol', whereIn: ['Admin', 'admin'])
         .limit(1)
         .get();
     if (admins.docs.isNotEmpty) return admins.docs.first.id;

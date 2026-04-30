@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:urbi_connect/components/google_auth_button.dart';
 import 'package:urbi_connect/screens/auth/register_screen.dart';
 import 'package:urbi_connect/services/auth_service.dart';
+import 'package:urbi_connect/services/support_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -194,11 +195,158 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 16),
+                TextButton.icon(
+                  onPressed: _showGuestSupportDialog,
+                  icon: const Icon(Icons.help_outline_rounded, size: 18),
+                  label: const Text('¿Necesitas ayuda? Soporte técnico'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.grey[600],
+                    textStyle: GoogleFonts.inter(
+                        fontSize: 13, fontWeight: FontWeight.w500),
+                  ),
+                ),
+                const SizedBox(height: 24),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  void _showGuestSupportDialog() {
+    final nameController = TextEditingController();
+    final surnameController = TextEditingController();
+    final emailController = TextEditingController();
+    final messageController = TextEditingController();
+    final supportService = SupportService();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        bool isDialogLoading = false;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24)),
+              title: const Text('Contactar soporte'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(labelText: 'Nombre'),
+                      enabled: !isDialogLoading,
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: surnameController,
+                      decoration: const InputDecoration(labelText: 'Apellidos'),
+                      enabled: !isDialogLoading,
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: const InputDecoration(
+                          labelText: 'Correo electrónico'),
+                      enabled: !isDialogLoading,
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: messageController,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                          labelText: 'Mensaje / Problema'),
+                      enabled: !isDialogLoading,
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed:
+                      isDialogLoading ? null : () => Navigator.pop(context),
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton(
+                  onPressed: isDialogLoading
+                      ? null
+                      : () async {
+                          final name = nameController.text.trim();
+                          final email = emailController.text.trim();
+                          final message = messageController.text.trim();
+
+                          if (name.isEmpty ||
+                              email.isEmpty ||
+                              message.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text(
+                                      'Por favor, rellena todos los campos obligatorios')),
+                            );
+                            return;
+                          }
+
+                          // Email validation
+                          final emailRegex =
+                              RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                          if (!emailRegex.hasMatch(email)) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text(
+                                      'Por favor, introduce un correo electrónico válido')),
+                            );
+                            return;
+                          }
+
+                          setDialogState(() => isDialogLoading = true);
+
+                          try {
+                            await supportService.createGuestSupportTicket(
+                              name: name,
+                              surname: surnameController.text.trim(),
+                              email: email,
+                              message: message,
+                              imageUrl: null,
+                            );
+
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text(
+                                        'Mensaje enviado. Te contactaremos pronto.')),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              setDialogState(() => isDialogLoading = false);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content:
+                                        Text('Error al enviar el ticket: $e')),
+                              );
+                            }
+                          }
+                        },
+                  child: isDialogLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('Enviar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }

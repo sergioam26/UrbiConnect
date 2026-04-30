@@ -104,7 +104,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ],
                   ),
                   child: Image.asset(
-                    'assets/images/favicon.png',
+                    'assets/images/logo.png',
                     height: 100,
                     fit: BoxFit.contain,
                   ),

@@ -2,8 +2,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:urbi_connect/models/incident.dart';
 import 'package:urbi_connect/models/notification.dart';
+import 'package:urbi_connect/models/user_profile.dart';
+import 'package:urbi_connect/screens/incidents/chat_screen.dart';
+import 'package:urbi_connect/screens/incidents/incident_detail_screen.dart';
+import 'package:urbi_connect/screens/incidents/responsible_incident_detail_screen.dart';
+import 'package:urbi_connect/screens/support/support_chat_screen.dart';
 
 class NotificationService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -95,6 +102,97 @@ class NotificationService {
 
     // Limpiar notificaciones antiguas
     _deleteOldNotifications();
+  }
+
+  // Manejar el clic en una notificación Push
+  void setupInteractedMessages(BuildContext context) async {
+    // Cuando la aplicación se abre desde el estado de terminada (cold start)
+    RemoteMessage? initialMessage = await _fcm.getInitialMessage();
+    if (initialMessage != null && context.mounted) {
+      _handlePushMessage(context, initialMessage);
+    }
+
+    // Cuando la aplicación está en segundo plano y se abre mediante click en notificación
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      if (context.mounted) {
+        _handlePushMessage(context, message);
+      }
+    });
+  }
+
+  Future<void> _handlePushMessage(
+      BuildContext context, RemoteMessage message) async {
+    final referenceId =
+        message.data['referenceId'] ?? message.data['id_referencia'];
+    final type = message.data['type'] ?? message.data['tipo'];
+
+    if (referenceId == null || referenceId.isEmpty) return;
+
+    try {
+      if (type == 'chat') {
+        if (context.mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => ChatScreen(incidentId: referenceId)),
+          );
+        }
+      } else if (type == 'soporte' || type == 'chat_soporte') {
+        final profileDoc = await _db
+            .collection('users')
+            .doc(FirebaseAuth.instance.currentUser?.uid ?? '')
+            .get();
+        final isAdmin = profileDoc.exists &&
+            (profileDoc.get('rol') ?? '').toString().toLowerCase() == 'admin';
+
+        if (context.mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) =>
+                  SupportChatScreen(ticketId: referenceId, isAdmin: isAdmin),
+            ),
+          );
+        }
+      } else if (type == 'incidencia' ||
+          type == 'incidencia_editada' ||
+          type == 'recordatorio' ||
+          type == 'incidencia_eliminada') {
+        final incidentDoc =
+            await _db.collection('Incidencia').doc(referenceId).get();
+        if (!incidentDoc.exists) return;
+
+        final incident = Incident.fromFirestore(incidentDoc);
+        final user = FirebaseAuth.instance.currentUser;
+        if (user == null) return;
+
+        final profileDoc = await _db.collection('users').doc(user.uid).get();
+        if (!profileDoc.exists) return;
+
+        final profile = UserProfile.fromMap(profileDoc.data()!, user.uid);
+
+        if (context.mounted) {
+          final String role = profile.role.toLowerCase();
+          if (role == 'responsable' || role == 'responsable municipal') {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) =>
+                      ResponsibleIncidentDetailScreen(incident: incident)),
+            );
+          } else {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) =>
+                      IncidentDetailScreen(incident: incident)),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error al navegar desde push: $e');
+    }
   }
 
   // Actualizar el token del dispositivo en Firestore
@@ -196,13 +294,15 @@ class NotificationService {
         .map((snapshot) => snapshot.docs.length);
   }
 
-  // Enviar notificación manual
+  // Enviar notificación individual
   Future<void> sendNotification({
     required String userId,
     required String title,
     required String body,
     String? referenceId,
     String? type,
+    bool esOficial = false,
+    String? imageUrl,
   }) {
     return _db.collection('Notificaciones').add({
       'id_usuario': userId,
@@ -212,6 +312,48 @@ class NotificationService {
       'leido': false,
       'id_referencia': referenceId,
       'tipo': type,
+      'es_oficial': esOficial,
+      'url_imagen': imageUrl,
     });
+  }
+
+  // Enviar notificación a múltiples grupos
+  Future<void> broadcastNotification({
+    required List<String> roles,
+    required String title,
+    required String body,
+    String? imageUrl,
+  }) async {
+    try {
+      final String? currentUserId = FirebaseAuth.instance.currentUser?.uid;
+      final usersSnapshot =
+          await _db.collection('users').where('rol', whereIn: roles).get();
+
+      final batch = _db.batch();
+
+      for (var doc in usersSnapshot.docs) {
+        // No enviar notificación al admin que la envía
+        if (doc.id == currentUserId) continue;
+
+        final notifRef = _db.collection('Notificaciones').doc();
+        batch.set(notifRef, {
+          'id_usuario': doc.id,
+          'titulo': title,
+          'mensaje': body,
+          'fecha_creacion': FieldValue.serverTimestamp(),
+          'leido': false,
+          'tipo': 'broadcast',
+          'es_oficial': true,
+          'destinatarios': roles,
+          'url_imagen': imageUrl,
+        });
+      }
+
+      await batch.commit();
+      debugPrint('Broadcast enviado a ${usersSnapshot.docs.length} usuarios.');
+    } catch (e) {
+      debugPrint('Error en broadcast: $e');
+      rethrow;
+    }
   }
 }

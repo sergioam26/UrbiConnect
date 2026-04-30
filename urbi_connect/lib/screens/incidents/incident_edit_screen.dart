@@ -19,12 +19,14 @@ class IncidentEditScreen extends StatefulWidget {
 class _IncidentEditScreenState extends State<IncidentEditScreen> {
   final _formKey = GlobalKey<FormState>();
   final DatabaseService _dbService = DatabaseService();
+  late TextEditingController _titleController;
   late TextEditingController _descriptionController;
 
   String? _selectedCategoryId;
   List<Map<String, String>> _firestoreCategories = [];
-  XFile? _imageFile;
-  Uint8List? _webImage;
+  final List<XFile> _imageFiles = [];
+  final List<Uint8List> _webImages = [];
+  List<String> _existingUrls = [];
   Position? _currentPosition;
   bool _isLoading = false;
 
@@ -33,9 +35,12 @@ class _IncidentEditScreenState extends State<IncidentEditScreen> {
   @override
   void initState() {
     super.initState();
+    _titleController = TextEditingController(text: widget.incident.title);
     _descriptionController =
         TextEditingController(text: widget.incident.description);
     _selectedCategoryId = widget.incident.categoryId;
+    _existingUrls = List<String>.from(widget.incident.imageUrls ??
+        (widget.incident.imageUrl != null ? [widget.incident.imageUrl!] : []));
     _currentPosition = Position(
       latitude: widget.incident.latitude,
       longitude: widget.incident.longitude,
@@ -75,35 +80,43 @@ class _IncidentEditScreenState extends State<IncidentEditScreen> {
 
   @override
   void dispose() {
+    _titleController.dispose();
     _descriptionController.dispose();
     super.dispose();
   }
 
   Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
+      if (_existingUrls.isEmpty && _imageFiles.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Por favor, añade al menos una foto')),
+        );
+        return;
+      }
+
       _formKey.currentState!.save();
       setState(() => _isLoading = true);
 
       try {
-        String? imageUrl = widget.incident.imageUrl;
+        final List<String> allUrls = List<String>.from(_existingUrls);
 
-        // Solo subir imagen si se ha seleccionado una nueva
-        if (_imageFile != null) {
-          try {
-            if (kIsWeb) {
-              imageUrl = await _dbService.uploadImageWeb(_webImage!);
-            } else {
-              imageUrl = await _dbService.uploadImage(File(_imageFile!.path));
-            }
-          } catch (e) {
-            debugPrint('Error uploading image: $e');
+        // Subir nuevas imagenes
+        for (int i = 0; i < _imageFiles.length; i++) {
+          String? url;
+          if (kIsWeb) {
+            url = await _dbService.uploadImageWeb(_webImages[i]);
+          } else {
+            url = await _dbService.uploadImage(File(_imageFiles[i].path));
           }
+          if (url != null) allUrls.add(url);
         }
 
         final updatedIncident = Incident(
           id: widget.incident.id,
+          title: _titleController.text.trim(),
           description: _descriptionController.text.trim(),
-          imageUrl: imageUrl,
+          imageUrl: allUrls.first,
+          imageUrls: allUrls,
           latitude: _currentPosition!.latitude,
           longitude: _currentPosition!.longitude,
           createdAt: widget.incident.createdAt,
@@ -120,7 +133,7 @@ class _IncidentEditScreenState extends State<IncidentEditScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Incidencia actualizada con éxito.')),
         );
-        Navigator.pop(context, true); // Retornamos true para indicar éxito
+        Navigator.pop(context, true);
       } catch (e) {
         if (!mounted) return;
         setState(() => _isLoading = false);
@@ -172,6 +185,22 @@ class _IncidentEditScreenState extends State<IncidentEditScreen> {
                       ),
                     const SizedBox(height: 16),
                     TextFormField(
+                      controller: _titleController,
+                      decoration: InputDecoration(
+                        labelText: 'Título de la incidencia',
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16)),
+                        filled: true,
+                        fillColor: Colors.grey.withValues(alpha: 0.05),
+                        counterText: '',
+                      ),
+                      maxLength: 100,
+                      validator: (value) => (value == null || value.isEmpty)
+                          ? 'Introduce un título'
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
                       controller: _descriptionController,
                       decoration: InputDecoration(
                         labelText: 'Descripción',
@@ -187,7 +216,7 @@ class _IncidentEditScreenState extends State<IncidentEditScreen> {
                           : null,
                     ),
                     const SizedBox(height: 24),
-                    const Text('Evidencia fotográfica (opcional si ya existe)',
+                    const Text('Evidencia fotográfica (actuales y nuevas)',
                         style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),
                     _buildImagePreview(),
@@ -215,44 +244,109 @@ class _IncidentEditScreenState extends State<IncidentEditScreen> {
   }
 
   Widget _buildImagePreview() {
-    return Container(
-      height: 180,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          if (_imageFile != null)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: kIsWeb
-                  ? Image.memory(_webImage!,
-                      fit: BoxFit.cover, width: double.infinity)
-                  : Image.file(File(_imageFile!.path),
-                      fit: BoxFit.cover, width: double.infinity),
-            )
-          else if (widget.incident.imageUrl != null)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Image.network(widget.incident.imageUrl!,
-                  fit: BoxFit.cover, width: double.infinity),
-            )
-          else
-            const Icon(Icons.image_outlined, size: 48, color: Colors.grey),
-          Positioned(
-            bottom: 8,
-            right: 8,
-            child: FloatingActionButton.small(
-              onPressed: () => _showImageSourceActionSheet(context),
-              child: const Icon(Icons.edit),
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Imágenes actuales y nuevas:',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 120,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: [
+              // Imágenes existentes
+              ..._existingUrls.asMap().entries.map((entry) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: Stack(
+                    children: [
+                      Container(
+                        width: 100,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          image: DecorationImage(
+                              image: NetworkImage(entry.value),
+                              fit: BoxFit.cover),
+                        ),
+                      ),
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: GestureDetector(
+                          onTap: () =>
+                              setState(() => _existingUrls.removeAt(entry.key)),
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(
+                                color: Colors.red, shape: BoxShape.circle),
+                            child: const Icon(Icons.close,
+                                size: 16, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              // Imágenes nuevas
+              ..._imageFiles.asMap().entries.map((entry) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: Stack(
+                    children: [
+                      Container(
+                        width: 100,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          image: DecorationImage(
+                            image: kIsWeb
+                                ? MemoryImage(_webImages[entry.key])
+                                : FileImage(File(entry.value.path))
+                                    as ImageProvider,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: GestureDetector(
+                          onTap: () => setState(() {
+                            _imageFiles.removeAt(entry.key);
+                            if (kIsWeb) _webImages.removeAt(entry.key);
+                          }),
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(
+                                color: Colors.red, shape: BoxShape.circle),
+                            child: const Icon(Icons.close,
+                                size: 16, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              // Botón añadir
+              GestureDetector(
+                onTap: () => _showImageSourceActionSheet(context),
+                child: Container(
+                  width: 100,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[400]!),
+                  ),
+                  child: const Icon(Icons.add_a_photo_outlined,
+                      color: Colors.grey),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -272,7 +366,7 @@ class _IncidentEditScreenState extends State<IncidentEditScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Galería'),
+              title: const Text('Galería (múltiple)'),
               onTap: () {
                 Navigator.pop(context);
                 _pickImage(ImageSource.gallery);
@@ -285,18 +379,40 @@ class _IncidentEditScreenState extends State<IncidentEditScreen> {
   }
 
   Future<void> _pickImage(ImageSource source) async {
-    final XFile? pickedFile =
-        await _picker.pickImage(source: source, imageQuality: 50);
-    if (pickedFile != null) {
-      if (kIsWeb) {
-        final bytes = await pickedFile.readAsBytes();
-        setState(() {
-          _webImage = bytes;
-          _imageFile = pickedFile;
-        });
+    try {
+      if (source == ImageSource.gallery) {
+        final List<XFile> pickedFiles =
+            await _picker.pickMultiImage(imageQuality: 50);
+        if (pickedFiles.isNotEmpty) {
+          for (var pickedFile in pickedFiles) {
+            if (kIsWeb) {
+              final bytes = await pickedFile.readAsBytes();
+              setState(() {
+                _webImages.add(bytes);
+                _imageFiles.add(pickedFile);
+              });
+            } else {
+              setState(() => _imageFiles.add(pickedFile));
+            }
+          }
+        }
       } else {
-        setState(() => _imageFile = pickedFile);
+        final XFile? pickedFile =
+            await _picker.pickImage(source: source, imageQuality: 50);
+        if (pickedFile != null) {
+          if (kIsWeb) {
+            final bytes = await pickedFile.readAsBytes();
+            setState(() {
+              _webImages.add(bytes);
+              _imageFiles.add(pickedFile);
+            });
+          } else {
+            setState(() => _imageFiles.add(pickedFile));
+          }
+        }
       }
+    } catch (e) {
+      debugPrint('Error picking image: $e');
     }
   }
 }

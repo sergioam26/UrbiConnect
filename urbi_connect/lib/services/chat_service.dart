@@ -23,12 +23,13 @@ class ChatService {
   }
 
   // Enviar mensaje
-  Future<void> sendMessage(
-      String incidentId, String senderId, String text) async {
+  Future<void> sendMessage(String incidentId, String senderId, String text,
+      {String? imageUrl}) async {
     await _db.collection('Mensajes_Chat').add({
       'id_incidencia': incidentId,
       'emisor_id': senderId,
       'texto': text,
+      'url_imagen': imageUrl,
       'fecha': FieldValue.serverTimestamp(),
     });
 
@@ -63,7 +64,9 @@ class ChatService {
           await _notificationService.sendNotification(
             userId: targetUserId,
             title: 'Nuevo mensaje en chat',
-            body: text.length > 50 ? '${text.substring(0, 47)}...' : text,
+            body: imageUrl != null
+                ? '📷 Foto enviada'
+                : (text.length > 50 ? '${text.substring(0, 47)}...' : text),
             referenceId: incidentId,
             type: 'chat',
           );

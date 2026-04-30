@@ -33,7 +33,7 @@ class ProfileScreen extends StatelessWidget {
                   const SizedBox(height: 12),
                   _buildInfoSection(context, user, profile),
                   const SizedBox(height: 12),
-                  _buildSettingsSection(context, authService),
+                  _buildSettingsSection(context, authService, profile),
                   const SizedBox(height: 32),
                 ],
               ),
@@ -117,8 +117,9 @@ class ProfileScreen extends StatelessWidget {
 
   Widget _buildInfoSection(
       BuildContext context, User? user, UserProfile? profile) {
-    final isResponsible = profile?.role == 'Responsable' ||
-        profile?.role == 'Responsable Municipal';
+    final String role = profile?.role.toLowerCase() ?? '';
+    final isResponsible =
+        role == 'responsable' || role == 'responsable municipal';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -152,7 +153,7 @@ class ProfileScreen extends StatelessWidget {
                     profile?.username ?? (user?.email?.split('@')[0] ?? '-')),
                 _buildDivider(),
                 _buildModernTile(context, Icons.verified_user_rounded, 'Rol',
-                    profile?.role ?? 'Ciudadano'),
+                    _capitalize(profile?.role ?? 'ciudadano')),
                 _buildDivider(),
                 _buildModernTile(
                   context,
@@ -194,10 +195,23 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
+  String _capitalize(String text) {
+    if (text.isEmpty) return text;
+    final r = text.toLowerCase();
+    if (r == 'admin') return 'Admin';
+    if (r == 'ciudadano') return 'Ciudadano';
+    if (r == 'responsable' || r == 'responsable municipal')
+      return 'Responsable Municipal';
+    return r[0].toUpperCase() + r.substring(1);
+  }
+
   Widget _buildDivider() => const Divider(
       height: 1, indent: 64, endIndent: 20, color: Color(0xFFF1F5F9));
 
-  Widget _buildSettingsSection(BuildContext context, AuthService authService) {
+  Widget _buildSettingsSection(
+      BuildContext context, AuthService authService, UserProfile? profile) {
+    final isAdmin = profile?.role.toLowerCase() == 'admin';
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
@@ -245,15 +259,19 @@ class ProfileScreen extends StatelessWidget {
                           builder: (_) =>
                               const security.ChangePasswordScreen())),
                 ),
-                _buildDivider(),
-                _buildActionTile(
-                  context,
-                  Icons.help_center_rounded,
-                  'Soporte técnico',
-                  const Color(0xFF059669),
-                  () => Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => const SupportScreen())),
-                ),
+                if (!isAdmin) ...[
+                  _buildDivider(),
+                  _buildActionTile(
+                    context,
+                    Icons.support_agent_rounded,
+                    'Soporte técnico',
+                    const Color(0xFF059669),
+                    () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const SupportScreen())),
+                  ),
+                ],
                 _buildDivider(),
                 _buildActionTile(
                   context,

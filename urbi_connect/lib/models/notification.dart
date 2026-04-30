@@ -9,6 +9,7 @@ class AppNotification {
   final String userId;
   final String? referenceId;
   final String? type;
+  final bool isOfficial;
 
   AppNotification({
     required this.id,
@@ -19,6 +20,7 @@ class AppNotification {
     required this.userId,
     this.referenceId,
     this.type,
+    this.isOfficial = false,
   });
 
   factory AppNotification.fromFirestore(DocumentSnapshot doc) {
@@ -34,6 +36,7 @@ class AppNotification {
       userId: data['id_usuario'] ?? '',
       referenceId: data['id_referencia'],
       type: data['tipo'],
+      isOfficial: data['es_oficial'] ?? false,
     );
   }
 
@@ -46,6 +49,7 @@ class AppNotification {
       'id_usuario': userId,
       'id_referencia': referenceId,
       'tipo': type,
+      'es_oficial': isOfficial,
     };
   }
 }

@@ -77,10 +77,10 @@ class DatabaseService {
     Query query = _db.collection('Incidencia');
 
     // Filtramos por rol
-    if (profile.role == 'Ciudadano') {
+    final String role = profile.role.toLowerCase();
+    if (role == 'ciudadano') {
       query = query.where('id_usuario', isEqualTo: profile.uid);
-    } else if (profile.role == 'Responsable Municipal' ||
-        profile.role == 'Responsable') {
+    } else if (role == 'responsable' || role == 'responsable municipal') {
       if (profile.categories != null && profile.categories!.isNotEmpty) {
         query = query.where('id_categoria', whereIn: profile.categories);
       } else {
@@ -94,7 +94,9 @@ class DatabaseService {
             try {
               final data = doc.data() as Map<String, dynamic>;
               // Filtro manual de eliminadas para soportar documentos antiguos sin el campo
-              if (data['es_eliminada'] == true) return null;
+              if (data['es_eliminada'] == true) {
+                return null;
+              }
               return Incident.fromFirestore(doc);
             } catch (e) {
               debugPrint('Error al parsear incidencia ${doc.id}: $e');
@@ -118,8 +120,8 @@ class DatabaseService {
 
         // Auto-upgrade project owner to Admin if they are not already
         if (profile.email == 'sergioalgmir@gmail.com' &&
-            profile.role != 'Admin') {
-          _db.collection('users').doc(uid).update({'rol': 'Admin'});
+            profile.role.toLowerCase() != 'admin') {
+          _db.collection('users').doc(uid).update({'rol': 'admin'});
         }
 
         return profile;
@@ -143,7 +145,12 @@ class DatabaseService {
 
       final responsables = await _db
           .collection('users')
-          .where('rol', whereIn: ['Responsable', 'Responsable Municipal'])
+          .where('rol', whereIn: [
+            'Responsable',
+            'Responsable Municipal',
+            'responsable',
+            'responsable municipal'
+          ])
           .where('id_categorias', arrayContains: incident.categoryId)
           .get();
 
@@ -151,8 +158,7 @@ class DatabaseService {
         await _notificationService.sendNotification(
           userId: doc.id,
           title: 'Nueva incidencia: $categoryName',
-          body:
-              'Se ha reportado una nueva incidencia en tu categoría: ${incident.description}',
+          body: 'Se ha reportado: ${incident.title}',
           referenceId: docRef.id,
           type: 'incidencia',
         );
@@ -164,20 +170,24 @@ class DatabaseService {
 
   // Actualizar estado
   Future<void> updateIncidentStatus(String id, String newStatus) async {
-    await _db.collection('Incidencia').doc(id).update({'estado': newStatus});
+    final Map<String, dynamic> updates = {'estado': newStatus};
+    if (newStatus == 'Resuelta') {
+      updates['fecha_resolucion'] = FieldValue.serverTimestamp();
+    }
+
+    await _db.collection('Incidencia').doc(id).update(updates);
 
     // Notificar al ciudadano
     try {
       final doc = await _db.collection('Incidencia').doc(id).get();
       if (doc.exists) {
         final userId = doc.get('id_usuario');
-        final description = doc.get('description');
 
         await _notificationService.sendNotification(
           userId: userId,
           title: 'Actualización de incidencia',
           body:
-              'Tu incidencia "$description" ha cambiado su estado a: $newStatus',
+              'Tu incidencia "${doc.get('titulo') ?? doc.get('description')}" ha cambiado su estado a: $newStatus',
           referenceId: id,
           type: 'incidencia',
         );
@@ -194,7 +204,6 @@ class DatabaseService {
 
     final incidentData = incidentDoc.data() as Map<String, dynamic>;
     final categoryId = incidentData['id_categoria'];
-    final description = incidentData['description'];
 
     await _db.collection('Incidencia').doc(id).update({
       'estado': 'eliminada',
@@ -207,7 +216,12 @@ class DatabaseService {
     try {
       final responsables = await _db
           .collection('users')
-          .where('rol', whereIn: ['Responsable', 'Responsable Municipal'])
+          .where('rol', whereIn: [
+            'Responsable',
+            'Responsable Municipal',
+            'responsable',
+            'responsable municipal'
+          ])
           .where('id_categorias', arrayContains: categoryId)
           .get();
 
@@ -216,7 +230,7 @@ class DatabaseService {
           userId: doc.id,
           title: 'Incidencia eliminada por ciudadano',
           body:
-              'La incidencia "$description" ha sido eliminada. Motivo: $reason',
+              'La incidencia "${incidentData['titulo'] ?? incidentData['descripcion']}" ha sido eliminada. Motivo: $reason',
           referenceId: id,
           type: 'incidencia_eliminada',
         );
@@ -228,14 +242,35 @@ class DatabaseService {
 
   // Actualizar incidencia
   Future<void> updateIncident(Incident incident) async {
-    final data = incident.toMap();
+    final updatedIncident = Incident(
+      id: incident.id,
+      title: incident.title,
+      description: incident.description,
+      imageUrl: incident.imageUrl,
+      imageUrls: incident.imageUrls,
+      latitude: incident.latitude,
+      longitude: incident.longitude,
+      createdAt: incident.createdAt,
+      updatedAt: DateTime.now(), // Set current time as update time
+      status: incident.status,
+      userId: incident.userId,
+      categoryId: incident.categoryId,
+      lastReminderAt: incident.lastReminderAt,
+    );
+
+    final data = updatedIncident.toMap();
     await _db.collection('Incidencia').doc(incident.id).update(data);
 
     // Notificar a los responsables
     try {
       final responsables = await _db
           .collection('users')
-          .where('rol', whereIn: ['Responsable', 'Responsable Municipal'])
+          .where('rol', whereIn: [
+            'Responsable',
+            'Responsable Municipal',
+            'responsable',
+            'responsable municipal'
+          ])
           .where('id_categorias', arrayContains: incident.categoryId)
           .get();
 
@@ -244,7 +279,7 @@ class DatabaseService {
           userId: doc.id,
           title: 'Incidencia editada por ciudadano',
           body:
-              'La incidencia "${incident.description}" ha sido modificada por el autor.',
+              'La incidencia "${incident.title}" ha sido modificada por el autor.',
           referenceId: incident.id,
           type: 'incidencia_editada',
         );
@@ -289,7 +324,12 @@ class DatabaseService {
       // Notificar a los responsables
       final responsables = await _db
           .collection('users')
-          .where('rol', whereIn: ['Responsable', 'Responsable Municipal'])
+          .where('rol', whereIn: [
+            'Responsable',
+            'Responsable Municipal',
+            'responsable',
+            'responsable municipal'
+          ])
           .where('id_categorias', arrayContains: incident.categoryId)
           .get();
 
@@ -297,8 +337,7 @@ class DatabaseService {
         await _notificationService.sendNotification(
           userId: doc.id,
           title: 'Recordatorio de incidencia',
-          body:
-              'Un ciudadano solicita revisión de la incidencia: ${incident.description}',
+          body: 'Un ciudadano solicita revisión de: ${incident.title}',
           referenceId: incident.id,
           type: 'recordatorio',
         );

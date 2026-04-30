@@ -18,9 +18,11 @@ class IncidentListScreen extends StatefulWidget {
 }
 
 class _IncidentListScreenState extends State<IncidentListScreen> {
-  String _searchQuery = '';
   String _statusFilter = 'Todos';
-  final TextEditingController _searchController = TextEditingController();
+  String? _categoryFilter;
+  DateTimeRange? _dateRangeFilter;
+  bool _isAscending = false; // Default descending (newest first)
+
   late Stream<UserProfile?> _userProfileStream;
   UserProfile? _lastProfile;
 
@@ -33,13 +35,7 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
     }
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  List<Incident> _filterIncidents(List<Incident> incidents) {
+  List<Incident> _filterAndSortIncidents(List<Incident> incidents) {
     List<Incident> filtered = incidents;
 
     // Status filter
@@ -50,17 +46,32 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
           .toList();
     }
 
-    // Search query filter
-    if (_searchQuery.isEmpty) {
-      return filtered;
+    // Category filter
+    if (_categoryFilter != null && _categoryFilter != 'Todas') {
+      filtered =
+          filtered.where((inc) => inc.categoryId == _categoryFilter).toList();
     }
 
-    final query = _searchQuery.toLowerCase();
-    return filtered.where((inc) {
-      final desc = inc.description.toLowerCase();
-      final date = DateFormat('dd/MM/yyyy').format(inc.createdAt);
-      return desc.contains(query) || date.contains(query);
-    }).toList();
+    // Date range filter
+    if (_dateRangeFilter != null) {
+      filtered = filtered.where((inc) {
+        return inc.createdAt.isAfter(
+                _dateRangeFilter!.start.subtract(const Duration(seconds: 1))) &&
+            inc.createdAt
+                .isBefore(_dateRangeFilter!.end.add(const Duration(days: 1)));
+      }).toList();
+    }
+
+    // Sorting
+    filtered.sort((a, b) {
+      if (_isAscending) {
+        return a.createdAt.compareTo(b.createdAt);
+      } else {
+        return b.createdAt.compareTo(a.createdAt);
+      }
+    });
+
+    return filtered;
   }
 
   Map<String, List<Incident>> _groupIncidents(List<Incident> incidents) {
@@ -105,8 +116,11 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
 
         return Column(
           children: [
-            _buildSearchBar(),
-            _buildStatusFilters(),
+            if (isResponsible) ...[
+              const SizedBox(height: 8),
+              _buildStatusFilters(),
+            ] else
+              _buildUnifiedFilterButton(),
             Expanded(
               child: StreamBuilder<List<Incident>>(
                 stream: dbService.getIncidents(profile),
@@ -119,14 +133,16 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
                   }
 
                   final allIncidents = snapshot.data ?? [];
-                  final incidents = _filterIncidents(allIncidents);
+                  final incidents = _filterAndSortIncidents(allIncidents);
 
                   if (allIncidents.isEmpty) {
                     return _buildEmptyState();
                   }
 
                   if (incidents.isEmpty &&
-                      (_searchQuery.isNotEmpty || _statusFilter != 'Todos')) {
+                      (_statusFilter != 'Todos' ||
+                          _categoryFilter != null ||
+                          _dateRangeFilter != null)) {
                     return const Center(
                         child: Text(
                             'No hay coincidencias con los filtros aplicados'));
@@ -135,7 +151,7 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
                   if (isResponsible) {
                     final grouped = _groupIncidents(incidents);
                     return ListView(
-                      padding: const EdgeInsets.only(bottom: 80),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
                       children: grouped.keys.map((catId) {
                         return _buildCategoryGroup(
                             catId, grouped[catId]!, profile);
@@ -159,40 +175,413 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
     );
   }
 
-  Widget _buildSearchBar() {
+  Widget _buildUnifiedFilterButton() {
+    final bool hasFilters = _statusFilter != 'Todos' ||
+        _categoryFilter != null ||
+        _dateRangeFilter != null;
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-      child: Container(
-        decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+      child: InkWell(
+        onTap: () => _showCitizenFilters(),
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: hasFilters
+                ? Theme.of(context).colorScheme.primary
+                : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: hasFilters
+                  ? Theme.of(context).colorScheme.primary
+                  : const Color(0xFFE2E8F0),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.tune_rounded,
+                size: 20,
+                color: hasFilters ? Colors.white : const Color(0xFF64748B),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                hasFilters
+                    ? 'Filtros activos'
+                    : 'Filtrar y ordenar incidencias',
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  color: hasFilters ? Colors.white : const Color(0xFF1E293B),
+                ),
+              ),
+              const Spacer(),
+              if (hasFilters)
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                      color: Colors.white, shape: BoxShape.circle),
+                  child: Icon(Icons.check,
+                      size: 12, color: Theme.of(context).colorScheme.primary),
+                )
+              else
+                const Icon(Icons.keyboard_arrow_down_rounded,
+                    size: 20, color: Color(0xFF64748B)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showCitizenFilters() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return DraggableScrollableSheet(
+              initialChildSize: 0.7,
+              minChildSize: 0.5,
+              maxChildSize: 0.9,
+              expand: false,
+              builder: (context, scrollController) {
+                return SingleChildScrollView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.fromLTRB(28, 12, 28, 28),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          margin: const EdgeInsets.only(bottom: 24),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[300],
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Filtrar y ordenar',
+                            style: GoogleFonts.montserrat(
+                                fontSize: 22, fontWeight: FontWeight.w800),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              setModalState(() {
+                                _statusFilter = 'Todos';
+                                _categoryFilter = null;
+                                _dateRangeFilter = null;
+                                _isAscending = false;
+                              });
+                              setState(() {});
+                            },
+                            child: const Text('Limpiar'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+
+                      // ORDEN
+                      _buildFilterTitle('Ordenar por fecha'),
+                      Row(
+                        children: [
+                          _buildChoiceChip(
+                            'Más recientes',
+                            !_isAscending,
+                            (val) {
+                              setModalState(() => _isAscending = false);
+                              setState(() {});
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          _buildChoiceChip(
+                            'Más antiguas',
+                            _isAscending,
+                            (val) {
+                              setModalState(() => _isAscending = true);
+                              setState(() {});
+                            },
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // ESTADO
+                      _buildFilterTitle('Estado de la incidencia'),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          'Todos',
+                          'Pendiente',
+                          'En proceso',
+                          'Resuelta'
+                        ].map((s) {
+                          return _buildChoiceChip(
+                            s,
+                            _statusFilter == s,
+                            (val) {
+                              setModalState(() => _statusFilter = s);
+                              setState(() {});
+                            },
+                          );
+                        }).toList(),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // CATEGORÍA
+                      _buildFilterTitle('Categoría'),
+                      FutureBuilder<QuerySnapshot>(
+                        future: FirebaseFirestore.instance
+                            .collection('Categoria')
+                            .get(),
+                        builder: (context, snapshot) {
+                          if (!snapshot.hasData) {
+                            return const LinearProgressIndicator();
+                          }
+                          final categories = snapshot.data!.docs;
+                          return Wrap(
+                            spacing: 8,
+                            children: [
+                              _buildChoiceChip(
+                                'Todas',
+                                _categoryFilter == null,
+                                (val) {
+                                  setModalState(() => _categoryFilter = null);
+                                  setState(() {});
+                                },
+                              ),
+                              ...categories.map((doc) {
+                                final name = doc.get('nombre');
+                                return _buildChoiceChip(
+                                  name,
+                                  _categoryFilter == doc.id,
+                                  (val) {
+                                    setModalState(() =>
+                                        _categoryFilter = val ? doc.id : null);
+                                    setState(() {});
+                                  },
+                                );
+                              }),
+                            ],
+                          );
+                        },
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // FECHA
+                      _buildFilterTitle('Fecha de creación'),
+                      _buildNewDateFilter(setModalState),
+
+                      const SizedBox(height: 32),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 54,
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                Theme.of(context).colorScheme.primary,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16)),
+                            elevation: 0,
+                          ),
+                          child: Text(
+                            'Aplicar y ver resultados',
+                            style:
+                                GoogleFonts.inter(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildNewDateFilter(StateSetter setModalState) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildDateInput(
+                label: 'Desde',
+                date: _dateRangeFilter?.start,
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    locale: const Locale('es', 'ES'),
+                    cancelText: 'CANCELAR',
+                    confirmText: 'ACEPTAR',
+                    initialDate: _dateRangeFilter?.start ?? DateTime.now(),
+                    firstDate: DateTime(2023),
+                    lastDate: _dateRangeFilter?.end ?? DateTime.now(),
+                  );
+                  if (picked != null) {
+                    setModalState(() {
+                      _dateRangeFilter = DateTimeRange(
+                        start: picked,
+                        end: _dateRangeFilter?.end ?? picked,
+                      );
+                    });
+                    setState(() {});
+                  }
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildDateInput(
+                label: 'Hasta',
+                date: _dateRangeFilter?.end,
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    locale: const Locale('es', 'ES'),
+                    cancelText: 'CANCELAR',
+                    confirmText: 'ACEPTAR',
+                    initialDate: _dateRangeFilter?.end ?? DateTime.now(),
+                    firstDate: _dateRangeFilter?.start ?? DateTime(2023),
+                    lastDate: DateTime.now(),
+                  );
+                  if (picked != null) {
+                    setModalState(() {
+                      _dateRangeFilter = DateTimeRange(
+                        start: _dateRangeFilter?.start ?? picked,
+                        end: picked,
+                      );
+                    });
+                    setState(() {});
+                  }
+                },
+              ),
             ),
           ],
         ),
-        child: TextField(
-          key: const ValueKey('incident_search_field'),
-          controller: _searchController,
-          onChanged: (v) {
-            if (_searchQuery != v) {
-              setState(() => _searchQuery = v);
-            }
-          },
-          decoration: InputDecoration(
-            hintText: 'Buscar incidencias...',
-            prefixIcon: const Icon(Icons.search_rounded, size: 20),
-            suffixIcon: _searchQuery.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 20),
-                    onPressed: () {
-                      _searchController.clear();
-                      setState(() => _searchQuery = '');
-                    },
-                  )
-                : null,
+        if (_dateRangeFilter != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: TextButton.icon(
+              onPressed: () {
+                setModalState(() => _dateRangeFilter = null);
+                setState(() {});
+              },
+              icon: const Icon(Icons.backspace_outlined, size: 14),
+              label:
+                  const Text('Limpiar fechas', style: TextStyle(fontSize: 12)),
+            ),
           ),
+      ],
+    );
+  }
+
+  Widget _buildDateInput(
+      {required String label, DateTime? date, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label,
+                style: GoogleFonts.inter(
+                    fontSize: 10,
+                    color: const Color(0xFF64748B),
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.calendar_month_outlined,
+                    size: 14, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 6),
+                Text(
+                  date == null
+                      ? 'Cualquiera'
+                      : DateFormat('dd/MM/yy').format(date),
+                  style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF1E293B)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Text(
+        title,
+        style: GoogleFonts.inter(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          color: const Color(0xFF94A3B8),
+          letterSpacing: 1.1,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChoiceChip(
+      String label, bool selected, Function(bool) onSelected) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: onSelected,
+      showCheckmark: false,
+      selectedColor: Theme.of(context).colorScheme.primary,
+      labelStyle: GoogleFonts.inter(
+        color: selected ? Colors.white : const Color(0xFF475569),
+        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+        fontSize: 13,
+      ),
+      backgroundColor: const Color(0xFFF1F5F9),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: selected
+              ? Theme.of(context).colorScheme.primary
+              : Colors.transparent,
         ),
       ),
     );
@@ -268,36 +657,37 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
         if (snapshot.hasData && snapshot.data!.exists) {
           catName = snapshot.data!.get('nombre');
         }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 16, 8),
-              child: Row(
-                children: [
-                  Container(
-                    width: 4,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    catName.toUpperCase(),
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF1E293B),
-                      fontSize: 12,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
+        return Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            initiallyExpanded: true,
+            title: Text(
+              catName,
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF1E293B),
+                fontSize: 13,
+                letterSpacing: 0.5,
               ),
             ),
-            ...incidents.map((inc) => _buildIncidentCard(inc, profile)),
-          ],
+            subtitle: Text('${incidents.length} incidencias',
+                style: GoogleFonts.inter(fontSize: 11, color: Colors.grey)),
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Theme.of(context)
+                    .colorScheme
+                    .primary
+                    .withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.layers_outlined,
+                  size: 20, color: Theme.of(context).colorScheme.primary),
+            ),
+            children: incidents
+                .map((inc) => _buildIncidentCard(inc, profile))
+                .toList(),
+          ),
         );
       },
     );
@@ -382,30 +772,59 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
                       _buildStatusChip(incident.status),
                       const SizedBox(height: 8),
                       Text(
-                        incident.description,
-                        maxLines: 2,
+                        incident.title,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.inter(
                           fontWeight: FontWeight.w700,
                           fontSize: 15,
                           color: const Color(0xFF1E293B),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        incident.description,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 13,
+                          color: const Color(0xFF64748B),
                           height: 1.3,
                         ),
                       ),
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          const Icon(Icons.calendar_today_rounded,
-                              size: 12, color: Color(0xFF94A3B8)),
+                          Icon(
+                            incident.updatedAt != null
+                                ? Icons.edit_calendar_rounded
+                                : Icons.calendar_today_rounded,
+                            size: 12,
+                            color: const Color(0xFF94A3B8),
+                          ),
                           const SizedBox(width: 4),
                           Text(
-                            DateFormat('dd MMM, yyyy')
-                                .format(incident.createdAt),
+                            incident.updatedAt != null
+                                ? 'Ed: ${DateFormat('dd/MM/yy').format(incident.updatedAt!)}'
+                                : DateFormat('dd MMM, yyyy')
+                                    .format(incident.createdAt),
                             style: GoogleFonts.inter(
                                 fontSize: 11,
                                 color: const Color(0xFF64748B),
                                 fontWeight: FontWeight.w500),
                           ),
+                          if (incident.updatedAt != null) ...[
+                            const SizedBox(width: 8),
+                            const Icon(Icons.history_rounded,
+                                size: 12, color: Color(0xFF94A3B8)),
+                            const SizedBox(width: 2),
+                            Text(
+                              'Cre: ${DateFormat('dd/MM/yy').format(incident.createdAt)}',
+                              style: GoogleFonts.inter(
+                                  fontSize: 10, color: const Color(0xFF94A3B8)),
+                            ),
+                          ],
                         ],
                       ),
                     ],

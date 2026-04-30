@@ -4,73 +4,220 @@ import 'package:urbi_connect/models/category.dart';
 
 import 'add_category_screen.dart';
 
-class CategoryManagementScreen extends StatelessWidget {
+class CategoryManagementScreen extends StatefulWidget {
   const CategoryManagementScreen({super.key});
+
+  @override
+  State<CategoryManagementScreen> createState() =>
+      _CategoryManagementScreenState();
+}
+
+class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Gestión de categorías')),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('Categoria').snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return const Center(child: Text('Error al cargar categorías'));
-          }
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final categories = snapshot.data!.docs
-              .map((doc) =>
-                  Category.fromMap(doc.data() as Map<String, dynamic>, doc.id))
-              .toList();
-
-          if (categories.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text('No hay categorías creadas.'),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => _seedDefaultCategories(context),
-                    child: const Text('Cargar categorías por defecto'),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return ListView.builder(
-            itemCount: categories.length,
-            itemBuilder: (context, index) {
-              final cat = categories[index];
-              return ListTile(
-                title: Text(cat.name),
-                subtitle: Text(cat.description),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () => _confirmDelete(context, cat),
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
-        },
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        title: const Text(
+          'Categorías de incidencias',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        elevation: 0,
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF0F172A),
       ),
-      floatingActionButton: FloatingActionButton(
+      body: Column(
+        children: [
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) =>
+                  setState(() => _searchQuery = value.toLowerCase()),
+              decoration: InputDecoration(
+                hintText: 'Buscar categorías...',
+                prefixIcon: const Icon(Icons.search, color: Color(0xFF64748B)),
+                filled: true,
+                fillColor: const Color(0xFFF1F5F9),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('Categoria')
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return const Center(
+                      child: Text('Error al cargar categorías'));
+                }
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final categories = snapshot.data!.docs
+                    .map((doc) => Category.fromMap(
+                        doc.data() as Map<String, dynamic>, doc.id))
+                    .toList();
+
+                final filteredCategories = categories.where((cat) {
+                  return cat.name.toLowerCase().contains(_searchQuery) ||
+                      cat.description.toLowerCase().contains(_searchQuery);
+                }).toList();
+
+                if (categories.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.category_outlined,
+                            size: 64, color: Colors.grey[300]),
+                        const SizedBox(height: 16),
+                        const Text('No hay categorías creadas.'),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          onPressed: () => _seedDefaultCategories(context),
+                          icon: const Icon(Icons.auto_awesome_rounded),
+                          label: const Text('Cargar por defecto'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF6366F1),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                if (filteredCategories.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.search_off_rounded,
+                            size: 64, color: Colors.grey[300]),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No se encontraron categorías',
+                          style:
+                              TextStyle(color: Colors.grey[600], fontSize: 16),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: filteredCategories.length,
+                  itemBuilder: (context, index) {
+                    final cat = filteredCategories[index];
+                    return _buildCategoryCard(context, cat);
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const AddCategoryScreen()),
           );
         },
-        child: const Icon(Icons.add),
+        backgroundColor: const Color(0xFF0F172A),
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add),
+        label: const Text('Nueva categoría'),
+      ),
+    );
+  }
+
+  Widget _buildCategoryCard(BuildContext context, Category cat) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child:
+                  const Icon(Icons.category_rounded, color: Color(0xFF6366F1)),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    cat.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Color(0xFF1E293B),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    cat.description,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey[600],
+                      height: 1.4,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline_rounded,
+                  color: Color(0xFFEF4444)),
+              onPressed: () => _confirmDelete(context, cat),
+              style: IconButton.styleFrom(
+                backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.1),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -78,47 +225,47 @@ class CategoryManagementScreen extends StatelessWidget {
   Future<void> _seedDefaultCategories(BuildContext context) async {
     final defaults = [
       {
-        'nombre': 'LIMPIEZA',
+        'nombre': 'Limpieza',
         'descripcion':
             'Esta categoría recoge incidencias relacionadas con la suciedad de las calles, así como problemas con papeleras y contenedores.'
       },
       {
-        'nombre': 'ALUMBRADO',
+        'nombre': 'Alumbrado',
         'descripcion':
             'Esta categoría abarca percances relacionados con la iluminación urbana, por ejemplo, farolas que no funcionan correctamente.'
       },
       {
-        'nombre': 'VÍA PÚBLICA',
+        'nombre': 'Vía pública',
         'descripcion':
             'Esta categoría recoge problemas en el espacio urbano, como agujeros en calles o losas rotas.'
       },
       {
-        'nombre': 'RED DE ALCANTARILLADO',
+        'nombre': 'Red de alcantarillado',
         'descripcion':
             'Incidencias como alcantarillas rotas o atascadas, malos olores, etc.'
       },
       {
-        'nombre': 'CONTROL DE PLAGAS',
+        'nombre': 'Control de plagas',
         'descripcion':
             'Notificaciones sobre la presencia de animales indeseados. Por ejemplo, ratas o cucarachas.'
       },
       {
-        'nombre': 'JARDINERÍA',
+        'nombre': 'Jardinería',
         'descripcion':
             'Incidencias en parques o jardines, como ramas rotas o árboles caídos.'
       },
       {
-        'nombre': 'TRÁFICO Y SEÑALIZACIÓN',
+        'nombre': 'Tráfico y señalización',
         'descripcion':
             'Semáforos que no funcionan, señales de tráfico caídas o borrosas, pasos de peatones dañados…'
       },
       {
-        'nombre': 'MOBILIARIO URBANO',
+        'nombre': 'Mobiliario urbano',
         'descripcion':
             'Bancos rotos, marquesinas de bus dañadas, señales informativas deterioradas, farolas ornamentales dañadas.'
       },
       {
-        'nombre': 'OBRAS O INFRAESTRUCTURA EN CONSTRUCCIÓN',
+        'nombre': 'Obras o infraestructura en construcción',
         'descripcion':
             'Barreras mal señalizadas, zonas peligrosas, calles cortadas sin aviso.'
       },
