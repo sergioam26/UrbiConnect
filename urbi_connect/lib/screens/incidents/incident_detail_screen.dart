@@ -48,13 +48,18 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
                             imageUrl: allImages[index],
                             fit: BoxFit.cover,
                             placeholder: (context, url) => Container(
-                              color: Colors.grey[200],
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHighest,
                               child: const Center(
                                   child: CircularProgressIndicator()),
                             ),
                             errorWidget: (context, url, error) => Container(
-                              color: Colors.grey[200],
-                              child: const Icon(Icons.error),
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHighest,
+                              child: Icon(Icons.error,
+                                  color: Theme.of(context).colorScheme.error),
                             ),
                           ),
                         ),
@@ -67,15 +72,17 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
               Container(
                 height: 200,
                 width: double.infinity,
-                color: Colors.grey[200],
-                child: const Column(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.image_not_supported,
-                        size: 50, color: Colors.grey),
-                    SizedBox(height: 8),
+                        size: 50, color: Theme.of(context).dividerColor),
+                    const SizedBox(height: 8),
                     Text('Sin imagen disponible',
-                        style: TextStyle(color: Colors.grey)),
+                        style: TextStyle(
+                            color:
+                                Theme.of(context).textTheme.bodySmall?.color)),
                   ],
                 ),
               ),
@@ -140,10 +147,10 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
                   const SizedBox(height: 8),
                   Text(
                     widget.incident.title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFF0F172A),
+                      color: Theme.of(context).textTheme.displaySmall?.color,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -190,7 +197,11 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
                                   fontSize: 15, fontWeight: FontWeight.w500)),
                           Text('@$username',
                               style: TextStyle(
-                                  fontSize: 13, color: Colors.grey[600])),
+                                  fontSize: 13,
+                                  color: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.color)),
                         ],
                       );
                     },
@@ -208,7 +219,8 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
                       height: 250,
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey[300]!),
+                        border:
+                            Border.all(color: Theme.of(context).dividerColor),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: ClipRRect(

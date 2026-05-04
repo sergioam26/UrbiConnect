@@ -88,7 +88,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   fontWeight: FontWeight.w800,
                   fontSize: 22,
                   letterSpacing: -0.5,
-                  color: Theme.of(context).primaryColor,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ),
             ),
@@ -154,16 +154,19 @@ class _HomeScreenState extends State<HomeScreen> {
                     )
                   : null,
           bottomNavigationBar: Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border:
-                  Border(top: BorderSide(color: Color(0xFFE2E8F0), width: 0.5)),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              border: Border(
+                  top: BorderSide(
+                      color:
+                          Theme.of(context).dividerColor.withValues(alpha: 0.1),
+                      width: 0.5)),
             ),
             child: NavigationBar(
               selectedIndex: _selectedIndex,
               onDestinationSelected: (index) =>
                   setState(() => _selectedIndex = index),
-              backgroundColor: Colors.white,
+              backgroundColor: Theme.of(context).colorScheme.surface,
               indicatorColor:
                   Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
               destinations: [
@@ -228,14 +231,18 @@ class AdminDashboard extends StatelessWidget {
             style: GoogleFonts.montserrat(
               fontSize: 28,
               fontWeight: FontWeight.w800,
-              color: const Color(0xFF0F172A),
+              color: Theme.of(context).textTheme.displayLarge?.color,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Control administrativo y analítico municipal',
             style: GoogleFonts.inter(
-              color: const Color(0xFF64748B),
+              color: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.color
+                  ?.withValues(alpha: 0.7),
               fontSize: 14,
             ),
           ),
@@ -245,7 +252,7 @@ class AdminDashboard extends StatelessWidget {
             title: 'Usuarios',
             subtitle: 'Directorio y control de accesos',
             icon: Icons.people_alt_rounded,
-            color: Colors.blue[600]!,
+            color: const Color(0xFF0F172A), // Slate 900
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -258,7 +265,7 @@ class AdminDashboard extends StatelessWidget {
             title: 'Categorías',
             subtitle: 'Configuración de tipos de incidencia',
             icon: Icons.category_rounded,
-            color: Colors.indigo[600]!,
+            color: const Color(0xFF334155), // Slate 700
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -271,7 +278,7 @@ class AdminDashboard extends StatelessWidget {
             title: 'Estadísticas',
             subtitle: 'Visualización de datos y reportes',
             icon: Icons.analytics_rounded,
-            color: const Color(0xFF059669),
+            color: const Color(0xFF0F766E), // Deep Teal
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const AnalyticsScreen()),
@@ -283,7 +290,7 @@ class AdminDashboard extends StatelessWidget {
             title: 'Soporte técnico',
             subtitle: 'Atención al ciudadano UrbiConnect',
             icon: Icons.support_agent_rounded,
-            color: Colors.orange[700]!,
+            color: const Color(0xFFB45309), // Muted Bronze/Amber
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -304,14 +311,15 @@ class AdminDashboard extends StatelessWidget {
     required Color color,
     required VoidCallback onTap,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -345,22 +353,26 @@ class AdminDashboard extends StatelessWidget {
                         style: GoogleFonts.montserrat(
                           fontWeight: FontWeight.w700,
                           fontSize: 16,
-                          color: const Color(0xFF0F172A),
+                          color: Theme.of(context).textTheme.titleLarge?.color,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         subtitle,
                         style: GoogleFonts.inter(
-                          color: const Color(0xFF64748B),
+                          color: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
+                              ?.color
+                              ?.withValues(alpha: 0.7),
                           fontSize: 13,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const Icon(Icons.arrow_forward_ios_rounded,
-                    color: Color(0xFFCBD5E1), size: 16),
+                Icon(Icons.arrow_forward_ios_rounded,
+                    color: Theme.of(context).dividerColor, size: 16),
               ],
             ),
           ),

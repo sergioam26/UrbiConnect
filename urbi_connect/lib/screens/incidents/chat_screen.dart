@@ -28,8 +28,12 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isUploading = false;
 
   Future<void> _sendImage() async {
-    final XFile? image =
-        await _picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
+    final XFile? image = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 50,
+      maxWidth: 1024,
+      maxHeight: 1024,
+    );
     if (image == null) {
       return;
     }
@@ -145,10 +149,12 @@ class _ChatScreenState extends State<ChatScreen> {
                 height: 60,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.surface,
                   border: Border(
                       bottom: BorderSide(
-                          color: Colors.grey.withValues(alpha: 0.1))),
+                          color: Theme.of(context)
+                              .dividerColor
+                              .withValues(alpha: 0.1))),
                 ),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -170,7 +176,11 @@ class _ChatScreenState extends State<ChatScreen> {
                                   fontWeight: FontWeight.bold, fontSize: 13)),
                           Text(data['estado'] ?? '',
                               style: TextStyle(
-                                  fontSize: 11, color: Colors.grey[600])),
+                                  fontSize: 11,
+                                  color: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.color)),
                         ],
                       ),
                     ),
@@ -258,10 +268,13 @@ class _ChatScreenState extends State<ChatScreen> {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: Colors.black.withValues(
+                  alpha: Theme.of(context).brightness == Brightness.dark
+                      ? 0.3
+                      : 0.05),
               blurRadius: 5,
               offset: const Offset(0, -2))
         ],
@@ -276,20 +289,29 @@ class _ChatScreenState extends State<ChatScreen> {
           Row(
             children: [
               IconButton(
-                icon:
-                    const Icon(Icons.image_outlined, color: Color(0xFF6750A4)),
+                icon: Icon(Icons.image_outlined,
+                    color: Theme.of(context).colorScheme.primary),
                 onPressed: _isUploading ? null : _sendImage,
               ),
               Expanded(
                 child: TextField(
                   controller: _messageController,
+                  style: TextStyle(
+                      color: Theme.of(context).textTheme.bodyLarge?.color),
                   decoration: InputDecoration(
                     hintText: 'Escribe un mensaje...',
+                    hintStyle: TextStyle(
+                        color: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.color
+                            ?.withValues(alpha: 0.6)),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(24),
                         borderSide: BorderSide.none),
                     filled: true,
-                    fillColor: Colors.grey[100],
+                    fillColor:
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
                     contentPadding:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   ),
@@ -298,7 +320,7 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
               const SizedBox(width: 8),
               CircleAvatar(
-                backgroundColor: const Color(0xFF6750A4),
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 child: IconButton(
                   icon: const Icon(Icons.send, color: Colors.white),
                   onPressed: _sendMessage,
@@ -396,7 +418,9 @@ class ChatBubble extends StatelessWidget {
               constraints: BoxConstraints(
                   maxWidth: MediaQuery.of(context).size.width * 0.7),
               decoration: BoxDecoration(
-                color: isMe ? const Color(0xFF6750A4) : Colors.grey[200],
+                color: isMe
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(16),
                   topRight: const Radius.circular(16),
@@ -412,7 +436,15 @@ class ChatBubble extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
-                      color: isMe ? Colors.white70 : Colors.black54,
+                      color: isMe
+                          ? Theme.of(context)
+                              .colorScheme
+                              .onPrimary
+                              .withValues(alpha: 0.7)
+                          : Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant
+                              .withValues(alpha: 0.7),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -438,7 +470,10 @@ class ChatBubble extends StatelessWidget {
                     Text(
                       message,
                       style: TextStyle(
-                          color: isMe ? Colors.white : Colors.black87),
+                        color: isMe
+                            ? Theme.of(context).colorScheme.onPrimary
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                 ],
               ),

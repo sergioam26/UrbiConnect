@@ -74,8 +74,8 @@ class _IncidentFormScreenState extends State<IncidentFormScreen> {
       if (source == ImageSource.gallery) {
         final List<XFile> pickedFiles = await _picker.pickMultiImage(
           imageQuality: 50,
-          maxWidth: 800,
-          maxHeight: 800,
+          maxWidth: 1024,
+          maxHeight: 1024,
         );
         if (pickedFiles.isNotEmpty) {
           for (var pickedFile in pickedFiles) {
@@ -146,8 +146,8 @@ class _IncidentFormScreenState extends State<IncidentFormScreen> {
         final XFile? pickedFile = await _picker.pickImage(
           source: source,
           imageQuality: 50,
-          maxWidth: 800,
-          maxHeight: 800,
+          maxWidth: 1024,
+          maxHeight: 1024,
         );
         if (pickedFile != null) {
           // Validación de tipo de archivo mejorado
@@ -524,15 +524,20 @@ class _IncidentFormScreenState extends State<IncidentFormScreen> {
                                       child: Container(
                                         width: 100,
                                         decoration: BoxDecoration(
-                                          color: Colors.grey[200],
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .surfaceContainerHighest,
                                           borderRadius:
                                               BorderRadius.circular(12),
                                           border: Border.all(
-                                              color: Colors.grey[400]!),
+                                              color: Theme.of(context)
+                                                  .dividerColor),
                                         ),
-                                        child: const Icon(
-                                            Icons.add_a_photo_outlined,
-                                            color: Colors.grey),
+                                        child: Icon(Icons.add_a_photo_outlined,
+                                            color: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.color),
                                       ),
                                     ),
                                   );
@@ -595,13 +600,15 @@ class _IncidentFormScreenState extends State<IncidentFormScreen> {
                             width: double.infinity,
                             decoration: BoxDecoration(
                               color: _currentPosition != null
-                                  ? Colors.green[50]
-                                  : Colors.grey[100],
+                                  ? Colors.green.withValues(alpha: 0.1)
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .surfaceContainerHighest,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
                                   color: _currentPosition != null
                                       ? Colors.green
-                                      : Colors.grey[300]!),
+                                      : Theme.of(context).dividerColor),
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -612,7 +619,10 @@ class _IncidentFormScreenState extends State<IncidentFormScreen> {
                                       : Icons.location_off,
                                   color: _currentPosition != null
                                       ? Colors.green
-                                      : Colors.grey,
+                                      : Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.color,
                                 ),
                                 const SizedBox(width: 12),
                                 Text(
@@ -621,8 +631,11 @@ class _IncidentFormScreenState extends State<IncidentFormScreen> {
                                       : 'Pulsa para capturar ubicación GPS',
                                   style: TextStyle(
                                     color: _currentPosition != null
-                                        ? Colors.green[700]
-                                        : Colors.grey[600],
+                                        ? Colors.green
+                                        : Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.color,
                                     fontWeight: _currentPosition != null
                                         ? FontWeight.bold
                                         : FontWeight.normal,
@@ -640,10 +653,6 @@ class _IncidentFormScreenState extends State<IncidentFormScreen> {
                       height: 50,
                       child: ElevatedButton(
                         onPressed: _submitForm,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0F172A),
-                          foregroundColor: Colors.white,
-                        ),
                         child: const Text('Enviar incidencia',
                             style: TextStyle(fontWeight: FontWeight.bold)),
                       ),

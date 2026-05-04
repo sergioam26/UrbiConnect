@@ -113,12 +113,13 @@ class DatabaseService {
 
   // Obtener perfil de usuario
   Stream<UserProfile?> getUserProfile(String uid) {
+    if (uid.isEmpty) return Stream.value(null);
     return _db.collection('users').doc(uid).snapshots().map((doc) {
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;
         final profile = UserProfile.fromMap(data, doc.id);
 
-        // Auto-upgrade project owner to Admin if they are not already
+        // Auto-upgrade project owner to Admin
         if (profile.email == 'sergioalgmir@gmail.com' &&
             profile.role.toLowerCase() != 'admin') {
           _db.collection('users').doc(uid).update({'rol': 'admin'});
@@ -127,92 +128,19 @@ class DatabaseService {
         return profile;
       }
       return null;
+    }).handleError((error) {
+      debugPrint('Error en getUserProfile: $error');
     });
   }
 
-  // Crear incidencia
-  Future<void> createIncident(Incident incident) async {
-    final data = incident.toMap();
-    data['es_eliminada'] = false;
-    final docRef = await _db.collection('Incidencia').add(data);
-
-    // Notificar a los responsables de la categoría
-    try {
-      final categorySnapshot =
-          await _db.collection('Categoria').doc(incident.categoryId).get();
-      final categoryName =
-          categorySnapshot.exists ? categorySnapshot.get('nombre') : 'Nueva';
-
-      final responsables = await _db
-          .collection('users')
-          .where('rol', whereIn: [
-            'Responsable',
-            'Responsable Municipal',
-            'responsable',
-            'responsable municipal'
-          ])
-          .where('id_categorias', arrayContains: incident.categoryId)
-          .get();
-
-      for (var doc in responsables.docs) {
-        await _notificationService.sendNotification(
-          userId: doc.id,
-          title: 'Nueva incidencia: $categoryName',
-          body: 'Se ha reportado: ${incident.title}',
-          referenceId: docRef.id,
-          type: 'incidencia',
-        );
-      }
-    } catch (e) {
-      debugPrint('Error enviando notificaciones a responsables: $e');
-    }
-  }
-
-  // Actualizar estado
-  Future<void> updateIncidentStatus(String id, String newStatus) async {
-    final Map<String, dynamic> updates = {'estado': newStatus};
-    if (newStatus == 'Resuelta') {
-      updates['fecha_resolucion'] = FieldValue.serverTimestamp();
-    }
-
-    await _db.collection('Incidencia').doc(id).update(updates);
-
-    // Notificar al ciudadano
-    try {
-      final doc = await _db.collection('Incidencia').doc(id).get();
-      if (doc.exists) {
-        final userId = doc.get('id_usuario');
-
-        await _notificationService.sendNotification(
-          userId: userId,
-          title: 'Actualización de incidencia',
-          body:
-              'Tu incidencia "${doc.get('titulo') ?? doc.get('description')}" ha cambiado su estado a: $newStatus',
-          referenceId: id,
-          type: 'incidencia',
-        );
-      }
-    } catch (e) {
-      debugPrint('Error enviando notificación de estado: $e');
-    }
-  }
-
-  // Eliminar incidencia con motivo (Soft Delete)
-  Future<void> deleteIncident(String id, String reason) async {
-    final incidentDoc = await _db.collection('Incidencia').doc(id).get();
-    if (!incidentDoc.exists) return;
-
-    final incidentData = incidentDoc.data() as Map<String, dynamic>;
-    final categoryId = incidentData['id_categoria'];
-
-    await _db.collection('Incidencia').doc(id).update({
-      'estado': 'eliminada',
-      'motivo_eliminacion': reason,
-      'eliminado_en': FieldValue.serverTimestamp(),
-      'es_eliminada': true,
-    });
-
-    // Notificar a los responsables
+  // Notificar a los responsables (Helper interno)
+  Future<void> _notifyResponsibles({
+    required String categoryId,
+    required String title,
+    required String body,
+    required String referenceId,
+    required String type,
+  }) async {
     try {
       final responsables = await _db
           .collection('users')
@@ -228,124 +156,204 @@ class DatabaseService {
       for (var doc in responsables.docs) {
         await _notificationService.sendNotification(
           userId: doc.id,
-          title: 'Incidencia eliminada por ciudadano',
-          body:
-              'La incidencia "${incidentData['titulo'] ?? incidentData['descripcion']}" ha sido eliminada. Motivo: $reason',
-          referenceId: id,
-          type: 'incidencia_eliminada',
+          title: title,
+          body: body,
+          referenceId: referenceId,
+          type: type,
         );
       }
     } catch (e) {
-      debugPrint('Error enviando notificación de eliminación: $e');
+      debugPrint('Error enviando notificaciones a responsables: $e');
     }
+  }
+
+  // Helper para manejar errores de red y timeout
+  Future<T> _withTimeout<T>(Future<T> operation, {String? actionName}) async {
+    try {
+      // 5 segundos para cumplir con RNF-01 (3s ideal, 5s límite técnico razonable)
+      return await operation.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => throw Exception(
+            'La conexión es lenta o inestable. Pulsa para reintentar.'),
+      );
+    } catch (e) {
+      debugPrint('Error en ${actionName ?? 'operación'}: $e');
+      if (e.toString().contains('network-request-failed')) {
+        throw Exception(
+            'Sin conexión. La operación se completará automáticamente al recuperar la red.');
+      }
+      if (e.toString().contains('permission-denied')) {
+        throw Exception(
+            'Acceso denegado. No tienes permisos para realizar esta acción.');
+      }
+      rethrow;
+    }
+  }
+
+  // Crear incidencia
+  Future<void> createIncident(Incident incident) async {
+    return _withTimeout(() async {
+      final data = incident.toMap();
+      data['es_eliminada'] = false;
+      final docRef = await _db.collection('Incidencia').add(data);
+
+      try {
+        final categorySnapshot =
+            await _db.collection('Categoria').doc(incident.categoryId).get();
+        final categoryName =
+            categorySnapshot.exists ? categorySnapshot.get('nombre') : 'Nueva';
+
+        await _notifyResponsibles(
+          categoryId: incident.categoryId,
+          title: 'Nueva incidencia: $categoryName',
+          body: 'Se ha reportado: ${incident.title}',
+          referenceId: docRef.id,
+          type: 'incidencia',
+        );
+      } catch (e) {
+        debugPrint('Error en notificaciones post-creación: $e');
+      }
+    }(), actionName: 'Crear incidencia');
+  }
+
+  // Actualizar estado
+  Future<void> updateIncidentStatus(String id, String newStatus) async {
+    return _withTimeout(() async {
+      final Map<String, dynamic> updates = {'estado': newStatus};
+      if (newStatus == 'Resuelta') {
+        updates['fecha_resolucion'] = FieldValue.serverTimestamp();
+      }
+
+      await _db.collection('Incidencia').doc(id).update(updates);
+
+      // Notificar al ciudadano
+      try {
+        final doc = await _db.collection('Incidencia').doc(id).get();
+        if (doc.exists) {
+          final userId = doc.get('id_usuario');
+
+          await _notificationService.sendNotification(
+            userId: userId,
+            title: 'Actualización de incidencia',
+            body:
+                'Tu incidencia "${doc.get('titulo')}" ha cambiado su estado a: $newStatus',
+            referenceId: id,
+            type: 'incidencia',
+          );
+        }
+      } catch (e) {
+        debugPrint('Error enviando notificación de estado: $e');
+      }
+    }(), actionName: 'Actualizar estado');
+  }
+
+  // Eliminar incidencia con motivo (Soft Delete)
+  Future<void> deleteIncident(String id, String reason) async {
+    return _withTimeout(() async {
+      final incidentDoc = await _db.collection('Incidencia').doc(id).get();
+      if (!incidentDoc.exists) return;
+
+      final incidentData = incidentDoc.data() as Map<String, dynamic>;
+      final categoryId = incidentData['id_categoria'];
+
+      await _db.collection('Incidencia').doc(id).update({
+        'estado': 'eliminada',
+        'motivo_eliminacion': reason,
+        'eliminado_en': FieldValue.serverTimestamp(),
+        'es_eliminada': true,
+      });
+
+      await _notifyResponsibles(
+        categoryId: categoryId,
+        title: 'Incidencia eliminada por ciudadano',
+        body:
+            'La incidencia "${incidentData['titulo'] ?? ''}" ha sido eliminada. Motivo: $reason',
+        referenceId: id,
+        type: 'incidencia_eliminada',
+      );
+    }(), actionName: 'Eliminar incidencia');
   }
 
   // Actualizar incidencia
   Future<void> updateIncident(Incident incident) async {
-    final updatedIncident = Incident(
-      id: incident.id,
-      title: incident.title,
-      description: incident.description,
-      imageUrl: incident.imageUrl,
-      imageUrls: incident.imageUrls,
-      latitude: incident.latitude,
-      longitude: incident.longitude,
-      createdAt: incident.createdAt,
-      updatedAt: DateTime.now(), // Set current time as update time
-      status: incident.status,
-      userId: incident.userId,
-      categoryId: incident.categoryId,
-      lastReminderAt: incident.lastReminderAt,
-    );
+    return _withTimeout(() async {
+      final updatedIncident = Incident(
+        id: incident.id,
+        title: incident.title,
+        description: incident.description,
+        imageUrl: incident.imageUrl,
+        imageUrls: incident.imageUrls,
+        latitude: incident.latitude,
+        longitude: incident.longitude,
+        createdAt: incident.createdAt,
+        updatedAt: DateTime.now(),
+        status: incident.status,
+        userId: incident.userId,
+        categoryId: incident.categoryId,
+        lastReminderAt: incident.lastReminderAt,
+      );
 
-    final data = updatedIncident.toMap();
-    await _db.collection('Incidencia').doc(incident.id).update(data);
+      final data = updatedIncident.toMap();
+      await _db.collection('Incidencia').doc(incident.id).update(data);
 
-    // Notificar a los responsables
-    try {
-      final responsables = await _db
-          .collection('users')
-          .where('rol', whereIn: [
-            'Responsable',
-            'Responsable Municipal',
-            'responsable',
-            'responsable municipal'
-          ])
-          .where('id_categorias', arrayContains: incident.categoryId)
-          .get();
-
-      for (var doc in responsables.docs) {
-        await _notificationService.sendNotification(
-          userId: doc.id,
-          title: 'Incidencia editada por ciudadano',
-          body:
-              'La incidencia "${incident.title}" ha sido modificada por el autor.',
-          referenceId: incident.id,
-          type: 'incidencia_editada',
-        );
-      }
-    } catch (e) {
-      debugPrint('Error enviando notificación de edición: $e');
-    }
+      await _notifyResponsibles(
+        categoryId: incident.categoryId,
+        title: 'Incidencia editada por ciudadano',
+        body:
+            'La incidencia "${incident.title}" ha sido modificada por el autor.',
+        referenceId: incident.id,
+        type: 'incidencia_editada',
+      );
+    }(), actionName: 'Actualizar incidencia');
   }
 
   // Actualizar rol y categorías de un usuario
   Future<void> updateUserRoleAndCategories(
       String uid, String role, List<String>? categories) {
-    return _db.collection('users').doc(uid).update({
-      'rol': role,
-      'id_categorias': categories,
-    });
+    return _withTimeout(() async {
+      await _db.collection('users').doc(uid).update({
+        'rol': role,
+        'id_categorias': categories,
+      });
+    }(), actionName: 'Actualizar rol');
   }
 
   // Enviar recordatorio
   Future<bool> sendReminder(Incident incident) async {
-    try {
-      final doc = await _db.collection('Incidencia').doc(incident.id).get();
-      if (!doc.exists) return false;
+    return _withTimeout(() async {
+      try {
+        final doc = await _db.collection('Incidencia').doc(incident.id).get();
+        if (!doc.exists) return false;
 
-      final data = doc.data() as Map<String, dynamic>;
-      final lastReminder = data['ultimo_recordatorio'] != null
-          ? (data['ultimo_recordatorio'] as Timestamp).toDate()
-          : null;
+        final data = doc.data() as Map<String, dynamic>;
+        final lastReminder = data['ultimo_recordatorio'] != null
+            ? (data['ultimo_recordatorio'] as Timestamp).toDate()
+            : null;
 
-      if (lastReminder != null) {
-        final difference = DateTime.now().difference(lastReminder);
-        if (difference.inDays < 3) {
-          return false; // No han pasado 3 días
+        if (lastReminder != null) {
+          final difference = DateTime.now().difference(lastReminder);
+          if (difference.inDays < 3) {
+            return false; // No han pasado 3 días
+          }
         }
-      }
 
-      // Actualizar fecha de último recordatorio
-      await _db.collection('Incidencia').doc(incident.id).update({
-        'ultimo_recordatorio': FieldValue.serverTimestamp(),
-      });
+        // Actualizar fecha de último recordatorio
+        await _db.collection('Incidencia').doc(incident.id).update({
+          'ultimo_recordatorio': FieldValue.serverTimestamp(),
+        });
 
-      // Notificar a los responsables
-      final responsables = await _db
-          .collection('users')
-          .where('rol', whereIn: [
-            'Responsable',
-            'Responsable Municipal',
-            'responsable',
-            'responsable municipal'
-          ])
-          .where('id_categorias', arrayContains: incident.categoryId)
-          .get();
-
-      for (var doc in responsables.docs) {
-        await _notificationService.sendNotification(
-          userId: doc.id,
+        await _notifyResponsibles(
+          categoryId: incident.categoryId,
           title: 'Recordatorio de incidencia',
           body: 'Un ciudadano solicita revisión de: ${incident.title}',
           referenceId: incident.id,
           type: 'recordatorio',
         );
+        return true;
+      } catch (e) {
+        debugPrint('Error enviando recordatorio: $e');
+        return false;
       }
-      return true;
-    } catch (e) {
-      debugPrint('Error enviando recordatorio: $e');
-      return false;
-    }
+    }(), actionName: 'Enviar recordatorio');
   }
 }

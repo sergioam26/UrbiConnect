@@ -191,16 +191,19 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
           decoration: BoxDecoration(
             color: hasFilters
                 ? Theme.of(context).colorScheme.primary
-                : Colors.white,
+                : Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: hasFilters
                   ? Theme.of(context).colorScheme.primary
-                  : const Color(0xFFE2E8F0),
+                  : Theme.of(context).dividerColor,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
+                color: Colors.black.withValues(
+                    alpha: Theme.of(context).brightness == Brightness.dark
+                        ? 0.3
+                        : 0.05),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -211,7 +214,9 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
               Icon(
                 Icons.tune_rounded,
                 size: 20,
-                color: hasFilters ? Colors.white : const Color(0xFF64748B),
+                color: hasFilters
+                    ? Colors.white
+                    : Theme.of(context).textTheme.bodySmall?.color,
               ),
               const SizedBox(width: 12),
               Text(
@@ -221,21 +226,25 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w600,
                   fontSize: 14,
-                  color: hasFilters ? Colors.white : const Color(0xFF1E293B),
+                  color: hasFilters
+                      ? Colors.white
+                      : Theme.of(context).textTheme.bodyLarge?.color,
                 ),
               ),
               const Spacer(),
               if (hasFilters)
                 Container(
                   padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                      color: Colors.white, shape: BoxShape.circle),
+                  decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      shape: BoxShape.circle),
                   child: Icon(Icons.check,
                       size: 12, color: Theme.of(context).colorScheme.primary),
                 )
               else
-                const Icon(Icons.keyboard_arrow_down_rounded,
-                    size: 20, color: Color(0xFF64748B)),
+                Icon(Icons.keyboard_arrow_down_rounded,
+                    size: 20,
+                    color: Theme.of(context).textTheme.bodySmall?.color),
             ],
           ),
         ),
@@ -247,7 +256,7 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
@@ -272,7 +281,9 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
                           height: 4,
                           margin: const EdgeInsets.only(bottom: 24),
                           decoration: BoxDecoration(
-                            color: Colors.grey[300],
+                            color: Theme.of(context)
+                                .dividerColor
+                                .withValues(alpha: 0.3),
                             borderRadius: BorderRadius.circular(2),
                           ),
                         ),
@@ -512,9 +523,10 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+          border: Border.all(
+              color: Theme.of(context).dividerColor.withValues(alpha: 0.2)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -522,7 +534,11 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
             Text(label,
                 style: GoogleFonts.inter(
                     fontSize: 10,
-                    color: const Color(0xFF64748B),
+                    color: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.color
+                        ?.withValues(alpha: 0.7),
                     fontWeight: FontWeight.w600)),
             const SizedBox(height: 4),
             Row(
@@ -537,7 +553,7 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
                   style: GoogleFonts.inter(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xFF1E293B)),
+                      color: Theme.of(context).textTheme.bodyLarge?.color),
                 ),
               ],
             ),
@@ -555,7 +571,11 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
         style: GoogleFonts.inter(
           fontSize: 11,
           fontWeight: FontWeight.w800,
-          color: const Color(0xFF94A3B8),
+          color: Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.color
+              ?.withValues(alpha: 0.5),
           letterSpacing: 1.1,
         ),
       ),
@@ -571,11 +591,13 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
       showCheckmark: false,
       selectedColor: Theme.of(context).colorScheme.primary,
       labelStyle: GoogleFonts.inter(
-        color: selected ? Colors.white : const Color(0xFF475569),
+        color: selected
+            ? Colors.white
+            : Theme.of(context).textTheme.bodyMedium?.color,
         fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
         fontSize: 13,
       ),
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -600,7 +622,11 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
             style: GoogleFonts.inter(
               fontSize: 10,
               fontWeight: FontWeight.w800,
-              color: const Color(0xFF94A3B8),
+              color: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.color
+                  ?.withValues(alpha: 0.6),
               letterSpacing: 1.2,
             ),
           ),
@@ -628,7 +654,7 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
                     fontSize: 13,
                   ),
-                  backgroundColor: Colors.white,
+                  backgroundColor: Theme.of(context).colorScheme.surface,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   shape: RoundedRectangleBorder(
@@ -636,7 +662,9 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
                     side: BorderSide(
                       color: isSelected
                           ? Theme.of(context).colorScheme.primary
-                          : const Color(0xFFE2E8F0),
+                          : Theme.of(context)
+                              .dividerColor
+                              .withValues(alpha: 0.1),
                     ),
                   ),
                 ),
@@ -666,7 +694,7 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
               catName,
               style: GoogleFonts.inter(
                 fontWeight: FontWeight.w800,
-                color: const Color(0xFF1E293B),
+                color: Theme.of(context).textTheme.titleSmall?.color,
                 fontSize: 13,
                 letterSpacing: 0.5,
               ),
@@ -698,12 +726,16 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(
+            color: Theme.of(context).dividerColor.withValues(alpha: 0.1)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
+            color: Colors.black.withValues(
+                alpha: Theme.of(context).brightness == Brightness.dark
+                    ? 0.3
+                    : 0.02),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -749,19 +781,25 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
                             placeholder: (context, url) => Container(
                                 width: 72,
                                 height: 72,
-                                color: const Color(0xFFF8FAFC)),
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .surfaceContainerHighest),
                             errorWidget: (context, url, error) => Container(
                                 width: 72,
                                 height: 72,
-                                color: const Color(0xFFF8FAFC),
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .surfaceContainerHighest,
                                 child: const Icon(Icons.error_outline_rounded)),
                           )
                         : Container(
                             width: 72,
                             height: 72,
-                            color: const Color(0xFFF8FAFC),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest,
                             child: Icon(Icons.image_not_supported_rounded,
-                                color: const Color(0xFFCBD5E1)),
+                                color: Theme.of(context).dividerColor),
                           ),
                   ),
                 ),
@@ -779,7 +817,7 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
                         style: GoogleFonts.inter(
                           fontWeight: FontWeight.w700,
                           fontSize: 15,
-                          color: const Color(0xFF1E293B),
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -790,7 +828,11 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
                         style: GoogleFonts.inter(
                           fontWeight: FontWeight.w500,
                           fontSize: 13,
-                          color: const Color(0xFF64748B),
+                          color: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
+                              ?.color
+                              ?.withValues(alpha: 0.7),
                           height: 1.3,
                         ),
                       ),
@@ -812,18 +854,32 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
                                     .format(incident.createdAt),
                             style: GoogleFonts.inter(
                                 fontSize: 11,
-                                color: const Color(0xFF64748B),
+                                color: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.color
+                                    ?.withValues(alpha: 0.7),
                                 fontWeight: FontWeight.w500),
                           ),
                           if (incident.updatedAt != null) ...[
                             const SizedBox(width: 8),
-                            const Icon(Icons.history_rounded,
-                                size: 12, color: Color(0xFF94A3B8)),
+                            Icon(Icons.history_rounded,
+                                size: 12,
+                                color: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.color
+                                    ?.withValues(alpha: 0.5)),
                             const SizedBox(width: 2),
                             Text(
                               'Cre: ${DateFormat('dd/MM/yy').format(incident.createdAt)}',
                               style: GoogleFonts.inter(
-                                  fontSize: 10, color: const Color(0xFF94A3B8)),
+                                  fontSize: 10,
+                                  color: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.color
+                                      ?.withValues(alpha: 0.5)),
                             ),
                           ],
                         ],
@@ -831,8 +887,8 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right_rounded,
-                    color: Color(0xFFCBD5E1)),
+                Icon(Icons.chevron_right_rounded,
+                    color: Theme.of(context).dividerColor),
               ],
             ),
           ),
@@ -848,12 +904,12 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF1F5F9),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.assignment_rounded,
-                size: 48, color: Color(0xFFCBD5E1)),
+            child: Icon(Icons.assignment_rounded,
+                size: 48, color: Theme.of(context).dividerColor),
           ),
           const SizedBox(height: 24),
           Text(
@@ -861,7 +917,7 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
             style: GoogleFonts.montserrat(
               fontSize: 18,
               fontWeight: FontWeight.w700,
-              color: const Color(0xFF1E293B),
+              color: Theme.of(context).textTheme.titleLarge?.color,
             ),
           ),
           const SizedBox(height: 8),

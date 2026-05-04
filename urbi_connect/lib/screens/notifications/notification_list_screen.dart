@@ -150,15 +150,25 @@ class NotificationListScreen extends StatelessWidget {
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               elevation: isOfficial ? 4 : 1,
               shadowColor: isOfficial
-                  ? Colors.indigo.withValues(alpha: 0.3)
+                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)
                   : Colors.black12,
               color: isOfficial
-                  ? const Color(0xFFF0F2FF)
-                  : (notification.isRead ? Colors.white : Colors.blue[50]),
+                  ? Theme.of(context)
+                      .colorScheme
+                      .primaryContainer
+                      .withValues(alpha: 0.1)
+                  : (notification.isRead
+                      ? Theme.of(context).cardColor
+                      : Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withValues(alpha: 0.05)),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
                 side: isOfficial
-                    ? const BorderSide(color: Color(0xFF6366F1), width: 1.5)
+                    ? BorderSide(
+                        color: Theme.of(context).colorScheme.primary,
+                        width: 1.5)
                     : BorderSide.none,
               ),
               child: ListTile(
@@ -187,8 +197,10 @@ class NotificationListScreen extends StatelessWidget {
                               ? Icons.notifications_none
                               : Icons.notifications_active),
                       color: isOfficial
-                          ? const Color(0xFF6366F1)
-                          : (notification.isRead ? Colors.grey : Colors.blue),
+                          ? Theme.of(context).colorScheme.primary
+                          : (notification.isRead
+                              ? Theme.of(context).textTheme.bodySmall?.color
+                              : Theme.of(context).colorScheme.primary),
                     ),
                   ),
                 ),
@@ -202,8 +214,8 @@ class NotificationListScreen extends StatelessWidget {
                               ? FontWeight.normal
                               : FontWeight.bold,
                           color: isOfficial
-                              ? const Color(0xFF1E1B4B)
-                              : Colors.black87,
+                              ? Theme.of(context).colorScheme.onPrimaryContainer
+                              : Theme.of(context).textTheme.bodyLarge?.color,
                         ),
                       ),
                     ),
@@ -212,7 +224,7 @@ class NotificationListScreen extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF6366F1),
+                          color: Theme.of(context).colorScheme.primary,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: const Text(
@@ -232,8 +244,11 @@ class NotificationListScreen extends StatelessWidget {
                       notification.body,
                       style: TextStyle(
                         color: isOfficial
-                            ? const Color(0xFF312E81)
-                            : Colors.grey[700],
+                            ? Theme.of(context)
+                                .colorScheme
+                                .onPrimaryContainer
+                                .withValues(alpha: 0.8)
+                            : Theme.of(context).textTheme.bodyMedium?.color,
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -243,15 +258,17 @@ class NotificationListScreen extends StatelessWidget {
                         Text(
                           DateFormat('dd/MM/yyyy HH:mm')
                               .format(notification.createdAt),
-                          style:
-                              const TextStyle(fontSize: 10, color: Colors.grey),
+                          style: TextStyle(
+                              fontSize: 10,
+                              color:
+                                  Theme.of(context).textTheme.bodySmall?.color),
                         ),
                         if (isOfficial)
-                          const Text(
+                          Text(
                             'Administración UrbiConnect',
                             style: TextStyle(
                                 fontSize: 10,
-                                color: Color(0xFF6366F1),
+                                color: Theme.of(context).colorScheme.primary,
                                 fontWeight: FontWeight.w600),
                           ),
                       ],

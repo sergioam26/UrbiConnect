@@ -42,13 +42,22 @@ class _SupportScreenState extends State<SupportScreen> {
                 TextField(
                   controller: controller,
                   maxLines: 4,
+                  style: TextStyle(
+                      color: Theme.of(context).textTheme.bodyLarge?.color),
                   onChanged: (_) => setDialogState(() {}),
                   decoration: InputDecoration(
                     hintText: 'Describe el problema con la aplicación...',
+                    hintStyle: TextStyle(
+                        color: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.color
+                            ?.withValues(alpha: 0.6)),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16)),
                     filled: true,
-                    fillColor: Colors.grey[100],
+                    fillColor:
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -75,7 +84,11 @@ class _SupportScreenState extends State<SupportScreen> {
                       ? null
                       : () async {
                           final XFile? image = await picker.pickImage(
-                              source: ImageSource.gallery, imageQuality: 50);
+                            source: ImageSource.gallery,
+                            imageQuality: 50,
+                            maxWidth: 1024,
+                            maxHeight: 1024,
+                          );
                           if (image == null) return;
 
                           // Validación de tipo de archivo mejorada
@@ -179,8 +192,7 @@ class _SupportScreenState extends State<SupportScreen> {
                   : () async {
                       setDialogState(() => isSaving = true);
                       try {
-                        final ticketId =
-                            await _supportService.createSupportTicket(
+                        await _supportService.createSupportTicket(
                           controller.text.trim(),
                           imageUrl: imageUrl,
                         );
@@ -204,8 +216,8 @@ class _SupportScreenState extends State<SupportScreen> {
                       }
                     },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0F172A),
-                foregroundColor: Colors.white,
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
               ),
@@ -330,8 +342,8 @@ class _SupportScreenState extends State<SupportScreen> {
               icon: const Icon(Icons.add_comment_rounded),
               label: const Text('Nueva consulta',
                   style: TextStyle(fontWeight: FontWeight.bold)),
-              backgroundColor: const Color(0xFF0F172A),
-              foregroundColor: Colors.white,
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
             )
           : null,
     );
@@ -372,24 +384,87 @@ class _SupportScreenState extends State<SupportScreen> {
             showDialog(
               context: context,
               builder: (context) => AlertDialog(
-                title: const Text('Ticket de Invitado'),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                        'Nombre: ${data['nombre_invitado']} ${data['apellidos_invitado']}'),
-                    const SizedBox(height: 8),
-                    Text('Email: ${data['email_invitado']}'),
-                    const SizedBox(height: 16),
-                    const Text(
-                        'Los tickets de invitados no permiten chat directo ya que el usuario no tiene cuenta. Por favor, contacta con él vía email.'),
-                  ],
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24)),
+                title: const Text('Detalles del Invitado'),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildDetailRow(context, 'Nombre',
+                          '${data['nombre_invitado']} ${data['apellidos_invitado']}'),
+                      const SizedBox(height: 12),
+                      _buildDetailRow(context, 'Email',
+                          data['email_invitado'] ?? 'No proporcionado'),
+                      const SizedBox(height: 20),
+                      const Divider(),
+                      const SizedBox(height: 16),
+                      Text(
+                        'MENSAJE:',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: Theme.of(context).colorScheme.secondary,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        data['descripcion'] ?? 'Sin descripción',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                          height: 1.5,
+                        ),
+                      ),
+                      if (data['url_imagen'] != null) ...[
+                        const SizedBox(height: 16),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.network(
+                            data['url_imagen'],
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 24),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline_rounded,
+                                size: 18,
+                                color: Theme.of(context).colorScheme.primary),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Los tickets de invitados no permiten chat directo. Contacta por email.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 actions: [
                   TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Entendido')),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cerrar'),
+                  ),
                 ],
               ),
             );
@@ -407,59 +482,61 @@ class _SupportScreenState extends State<SupportScreen> {
     );
   }
 
-  Widget _buildStatusIndicator(String status) {
-    Color color;
-    switch (status) {
-      case 'Abierto':
-        color = Colors.red;
-        break;
-      case 'En proceso':
-        color = Colors.orange;
-        break;
-      case 'Cerrado':
-        color = Colors.green;
-        break;
-      default:
-        color = Colors.grey;
-    }
-    return Container(
-      width: 12,
-      height: 12,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-    );
-  }
-
   Color _getStatusColor(String status) {
     switch (status) {
       case 'Abierto':
-        return Colors.red;
-      case 'En proceso':
-        return Colors.orange;
-      case 'Cerrado':
         return Colors.green;
+      case 'Cerrado':
+        return Colors.red;
       default:
         return Colors.grey;
     }
   }
 
+  Widget _buildDetailRow(BuildContext context, String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            color: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.color
+                ?.withValues(alpha: 0.6),
+            letterSpacing: 1.0,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildRoleBadge(String role) {
     final String r = role.toLowerCase();
-    Color color = Colors.blue;
+    Color color = const Color(0xFF2563EB); // Royal Blue
     String text = 'Ciudadano';
 
     if (r.contains('responsable')) {
-      color = Colors.purple;
+      color = const Color(0xFF0F172A); // Slate 900
       text = 'Responsable';
     } else if (r.contains('admin')) {
-      color = Colors.red;
+      color = const Color(0xFFEF4444); // Red 500
       text = 'Admin';
     }
 
     return _buildBadge(text, color);
-  }
-
-  Widget _buildGuestBadge() {
-    return _buildBadge('Invitado', Colors.orange[800]!);
   }
 
   Widget _buildBadge(String text, Color color) {

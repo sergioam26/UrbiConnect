@@ -25,20 +25,20 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text(
           'Categorías de incidencias',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF0F172A),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        foregroundColor: Theme.of(context).textTheme.titleLarge?.color,
       ),
       body: Column(
         children: [
           Container(
-            color: Colors.white,
+            color: Theme.of(context).scaffoldBackgroundColor,
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: TextField(
               controller: _searchController,
@@ -46,9 +46,11 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
                   setState(() => _searchQuery = value.toLowerCase()),
               decoration: InputDecoration(
                 hintText: 'Buscar categorías...',
-                prefixIcon: const Icon(Icons.search, color: Color(0xFF64748B)),
+                prefixIcon: Icon(Icons.search,
+                    color: Theme.of(context).textTheme.bodySmall?.color),
                 filled: true,
-                fillColor: const Color(0xFFF1F5F9),
+                fillColor:
+                    Theme.of(context).colorScheme.surfaceContainerHighest,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide.none,
@@ -157,11 +159,14 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(
+                alpha: Theme.of(context).brightness == Brightness.dark
+                    ? 0.3
+                    : 0.04),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -188,10 +193,10 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
                 children: [
                   Text(
                     cat.name,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
-                      color: Color(0xFF1E293B),
+                      color: Theme.of(context).textTheme.titleMedium?.color,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -199,7 +204,11 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
                     cat.description,
                     style: TextStyle(
                       fontSize: 13,
-                      color: Colors.grey[600],
+                      color: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.color
+                          ?.withValues(alpha: 0.7),
                       height: 1.4,
                     ),
                     maxLines: 2,

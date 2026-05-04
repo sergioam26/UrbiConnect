@@ -35,55 +35,81 @@ class SupportService {
     throw Exception(jsonErr);
   }
 
+  // Helper para manejar timeouts y errores de red
+  Future<T> _withTimeout<T>(Future<T> operation, {String? actionName}) async {
+    try {
+      return await operation.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () =>
+            throw Exception('Conexión lenta. Por favor, espera un momento.'),
+      );
+    } catch (e) {
+      debugPrint('Error en ${actionName ?? 'soporte'}: $e');
+      if (e.toString().contains('network-request-failed') ||
+          e.toString().contains('unavailable')) {
+        throw Exception(
+            'Sin conexión. La operación se completará al recuperar la red.');
+      }
+      rethrow;
+    }
+  }
+
   // Crear ticket de soporte
   Future<String> createSupportTicket(String description,
       {String? imageUrl}) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return '';
+    return _withTimeout(() async {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return '';
 
-    try {
-      final docRef = await _db.collection('Soporte').add({
-        'id_usuario': user.uid,
-        'descripcion': description,
-        'url_imagen': imageUrl,
-        'fecha': FieldValue.serverTimestamp(),
-        'estado':
-            'Cerrado', // Permanecerá cerrado hasta que el administrador responda por primera vez
-        'iniciado_por_admin': false,
-        'admin_leido': false,
-        'not_admin_leido': true,
-      });
-
-      if (imageUrl != null || description.isNotEmpty) {
-        await docRef.collection('Chat').add({
-          'id_emisor': user.uid,
-          'mensaje': description,
+      try {
+        final docRef = await _db.collection('Soporte').add({
+          'id_usuario': user.uid,
+          'descripcion': description,
           'url_imagen': imageUrl,
           'fecha': FieldValue.serverTimestamp(),
+          'estado': 'Abierto',
+          'iniciado_por_admin': false,
+          'admin_leido': false,
+          'not_admin_leido': true,
         });
-      }
 
-      // Notificar a los administradores
-      try {
-        final admins = await _db
-            .collection('users')
-            .where('rol', whereIn: ['Admin', 'admin']).get();
-        for (var doc in admins.docs) {
-          await _notificationService.sendNotification(
-            userId: doc.id,
-            title: 'Nuevo ticket de soporte',
-            body: 'Un usuario ha reportado un problema: $description',
-            referenceId: docRef.id,
-            type: 'soporte',
-          );
+        if (imageUrl != null || description.isNotEmpty) {
+          await docRef.collection('Chat').add({
+            'id_emisor': user.uid,
+            'mensaje': description,
+            'url_imagen': imageUrl,
+            'fecha': FieldValue.serverTimestamp(),
+          });
         }
+
+        // Notificar a los administradores (Background)
+        _notifyAdmins('Nuevo ticket de soporte',
+            'Un usuario ha reportado un problema: $description', docRef.id);
+
+        return docRef.id;
       } catch (e) {
-        debugPrint('Error notificando soporte a admins: $e');
+        _handleFirestoreError(e, OperationType.write, 'Soporte');
+        return '';
       }
-      return docRef.id;
+    }(), actionName: 'Crear ticket');
+  }
+
+  void _notifyAdmins(String title, String body, String id) async {
+    try {
+      final admins = await _db
+          .collection('users')
+          .where('rol', whereIn: ['Admin', 'admin']).get();
+      for (var doc in admins.docs) {
+        await _notificationService.sendNotification(
+          userId: doc.id,
+          title: title,
+          body: body,
+          referenceId: id,
+          type: 'soporte',
+        );
+      }
     } catch (e) {
-      _handleFirestoreError(e, OperationType.write, 'Soporte');
-      return '';
+      debugPrint('Error notificando soporte a admins: $e');
     }
   }
 

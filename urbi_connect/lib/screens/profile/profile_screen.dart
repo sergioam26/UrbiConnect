@@ -10,6 +10,7 @@ import 'package:urbi_connect/screens/profile/edit_profile_screen.dart';
 import 'package:urbi_connect/screens/support/support_screen.dart';
 import 'package:urbi_connect/services/auth_service.dart';
 import 'package:urbi_connect/services/database_service.dart';
+import 'package:urbi_connect/services/theme_service.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -49,15 +50,21 @@ class ProfileScreen extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.only(top: 80, bottom: 48, left: 24, right: 24),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary,
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Theme.of(context).colorScheme.primary,
+            Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
+          ],
+        ),
         borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(48),
           bottomRight: Radius.circular(48),
         ),
         boxShadow: [
           BoxShadow(
-            color:
-                Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
             blurRadius: 30,
             offset: const Offset(0, 15),
           ),
@@ -73,7 +80,7 @@ class ProfileScreen extends StatelessWidget {
             ),
             child: CircleAvatar(
               radius: 56,
-              backgroundColor: Colors.white,
+              backgroundColor: Theme.of(context).colorScheme.surface,
               backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
               child: photoUrl == null
                   ? Icon(Icons.person_rounded,
@@ -88,7 +95,9 @@ class ProfileScreen extends StatelessWidget {
                 : (user?.displayName ?? 'Ciudadano'),
             textAlign: TextAlign.center,
             style: GoogleFonts.montserrat(
-              color: Colors.white,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white
+                  : Colors.white,
               fontSize: 24,
               fontWeight: FontWeight.w800,
             ),
@@ -97,13 +106,16 @@ class ProfileScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
+              color: Colors.white.withValues(
+                  alpha: Theme.of(context).brightness == Brightness.dark
+                      ? 0.2
+                      : 0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
               profile?.email ?? (user?.email ?? ''),
               style: GoogleFonts.inter(
-                color: Colors.white.withValues(alpha: 0.8),
+                color: Colors.white.withValues(alpha: 0.9),
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
                 letterSpacing: 0.2,
@@ -131,7 +143,11 @@ class ProfileScreen extends StatelessWidget {
             child: Text(
               'Información personal',
               style: GoogleFonts.inter(
-                color: const Color(0xFF94A3B8),
+                color: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.color
+                    ?.withValues(alpha: 0.5),
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1.5,
@@ -140,9 +156,10 @@ class ProfileScreen extends StatelessWidget {
           ),
           Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              border: Border.all(
+                  color: Theme.of(context).colorScheme.outlineVariant),
             ),
             child: Column(
               children: [
@@ -151,23 +168,23 @@ class ProfileScreen extends StatelessWidget {
                     Icons.alternate_email_rounded,
                     'Usuario',
                     profile?.username ?? (user?.email?.split('@')[0] ?? '-')),
-                _buildDivider(),
+                _buildDivider(context),
                 _buildModernTile(context, Icons.verified_user_rounded, 'Rol',
                     _formatRole(profile?.role ?? 'ciudadano')),
-                _buildDivider(),
+                _buildDivider(context),
                 _buildModernTile(
                   context,
                   Icons.verified_rounded,
                   'Cuenta',
                   user?.emailVerified == true ? 'Verificada' : 'No verificada',
                   valueColor: user?.emailVerified == true
-                      ? const Color(0xFF059669)
-                      : Colors.orange[600],
+                      ? const Color(0xFF0F172A)
+                      : const Color(0xFFF59E0B),
                 ),
                 if (isResponsible &&
                     profile?.categories != null &&
                     profile!.categories!.isNotEmpty) ...[
-                  _buildDivider(),
+                  _buildDivider(context),
                   _buildResponsibleCategories(context, profile.categories!),
                 ],
               ],
@@ -196,21 +213,31 @@ class ProfileScreen extends StatelessWidget {
   }
 
   String _formatRole(String text) {
-    if (text.isEmpty) return text;
+    if (text.isEmpty) {
+      return text;
+    }
     final r = text.toLowerCase();
-    if (r == 'admin') return 'Admin';
-    if (r == 'ciudadano') return 'Ciudadano';
-    if (r == 'responsable' || r == 'responsable municipal')
+    if (r == 'admin') {
+      return 'Admin';
+    }
+    if (r == 'ciudadano') {
+      return 'Ciudadano';
+    }
+    if (r == 'responsable' || r == 'responsable municipal') {
       return 'Responsable municipal';
+    }
     return r;
   }
 
-  Widget _buildDivider() => const Divider(
-      height: 1, indent: 64, endIndent: 20, color: Color(0xFFF1F5F9));
+  Widget _buildDivider(BuildContext context) => Divider(
+      height: 1,
+      indent: 64,
+      endIndent: 20,
+      color: Theme.of(context).dividerColor.withValues(alpha: 0.1));
 
   Widget _buildSettingsSection(
       BuildContext context, AuthService authService, UserProfile? profile) {
-    final isAdmin = profile?.role.toLowerCase() == 'admin';
+    final themeService = Provider.of<ThemeService>(context);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -222,7 +249,11 @@ class ProfileScreen extends StatelessWidget {
             child: Text(
               'Ajustes de cuenta',
               style: GoogleFonts.inter(
-                color: const Color(0xFF94A3B8),
+                color: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.color
+                    ?.withValues(alpha: 0.5),
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1.5,
@@ -231,54 +262,66 @@ class ProfileScreen extends StatelessWidget {
           ),
           Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              border: Border.all(
+                  color: Theme.of(context).colorScheme.outlineVariant),
             ),
             child: Column(
               children: [
+                _buildThemeTile(context, themeService),
+                _buildDivider(context),
                 _buildActionTile(
                   context,
                   Icons.edit_note_rounded,
                   'Editar perfil',
-                  Colors.blue[600]!,
-                  () => Navigator.push(
+                  Theme.of(context).colorScheme.primary, // Prof. Primary
+                  () {
+                    Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (_) => const EditProfileScreen())),
+                          builder: (_) => const EditProfileScreen()),
+                    );
+                  },
                 ),
-                _buildDivider(),
+                _buildDivider(context),
                 _buildActionTile(
                   context,
                   Icons.lock_person_rounded,
                   'Cambiar contraseña',
                   Theme.of(context).colorScheme.secondary,
-                  () => Navigator.push(
+                  () {
+                    Navigator.push(
                       context,
                       MaterialPageRoute(
                           builder: (_) =>
-                              const security.ChangePasswordScreen())),
+                              const security.ChangePasswordScreen()),
+                    );
+                  },
                 ),
                 if (profile?.role.toLowerCase() != 'admin') ...[
-                  _buildDivider(),
+                  _buildDivider(context),
                   _buildActionTile(
                     context,
                     Icons.support_agent_rounded,
                     'Soporte técnico',
-                    const Color(0xFF059669),
-                    () => Navigator.push(
+                    Theme.of(context).colorScheme.primary,
+                    () {
+                      Navigator.push(
                         context,
                         MaterialPageRoute(
                             builder: (_) =>
-                                const SupportScreen(isAdmin: false))),
+                                const SupportScreen(isAdmin: false)),
+                      );
+                    },
                   ),
                 ],
-                _buildDivider(),
+                _buildDivider(context),
                 _buildActionTile(
                   context,
                   Icons.logout_rounded,
                   'Finalizar sesión',
-                  Colors.red[600]!,
+                  const Color(0xFFEF4444),
                   () => _showLogoutDialog(context, authService),
                 ),
               ],
@@ -306,7 +349,11 @@ class ProfileScreen extends StatelessWidget {
       title: Text(label,
           style: GoogleFonts.inter(
               fontSize: 11,
-              color: const Color(0xFF94A3B8),
+              color: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.color
+                  ?.withValues(alpha: 0.5),
               fontWeight: FontWeight.bold,
               letterSpacing: 0.5)),
       subtitle: Padding(
@@ -316,7 +363,7 @@ class ProfileScreen extends StatelessWidget {
           style: GoogleFonts.inter(
             fontSize: 15,
             fontWeight: FontWeight.w700,
-            color: valueColor ?? const Color(0xFF0F172A),
+            color: valueColor ?? Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
       ),
@@ -339,17 +386,58 @@ class ProfileScreen extends StatelessWidget {
           style: GoogleFonts.inter(
               fontSize: 15,
               fontWeight: FontWeight.w700,
-              color: const Color(0xFF1E293B))),
+              color: Theme.of(context)
+                  .textTheme
+                  .bodyLarge
+                  ?.color
+                  ?.withValues(alpha: 0.9))),
       trailing: Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(8),
         ),
-        child: const Icon(Icons.chevron_right_rounded,
-            color: Color(0xFFCBD5E1), size: 18),
+        child: Icon(Icons.chevron_right_rounded,
+            color: Theme.of(context).dividerColor, size: 18),
       ),
       onTap: onTap,
+    );
+  }
+
+  Widget _buildThemeTile(BuildContext context, ThemeService themeService) {
+    final isDark = themeService.isDarkMode;
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      leading: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: (isDark ? const Color(0xFFF59E0B) : const Color(0xFF3B82F6))
+              .withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Icon(
+          isDark ? Icons.wb_sunny_rounded : Icons.nightlight_round,
+          color: isDark ? const Color(0xFFF59E0B) : const Color(0xFF3B82F6),
+          size: 20,
+        ),
+      ),
+      title: Text(
+        'Modo Oscuro',
+        style: GoogleFonts.inter(
+          fontSize: 15,
+          fontWeight: FontWeight.w700,
+          color: Theme.of(context)
+              .textTheme
+              .bodyLarge
+              ?.color
+              ?.withValues(alpha: 0.9),
+        ),
+      ),
+      trailing: Switch.adaptive(
+        value: isDark,
+        activeColor: const Color(0xFF3B82F6),
+        onChanged: (value) => themeService.toggleTheme(value),
+      ),
     );
   }
 

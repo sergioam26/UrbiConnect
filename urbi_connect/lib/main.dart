@@ -11,6 +11,7 @@ import 'package:urbi_connect/firebase_options.dart';
 import 'package:urbi_connect/screens/auth/login_screen.dart';
 import 'package:urbi_connect/screens/home_screen.dart';
 import 'package:urbi_connect/services/auth_service.dart';
+import 'package:urbi_connect/services/theme_service.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -43,103 +44,174 @@ class UrbiConnectApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
+        ChangeNotifierProvider(create: (_) => ThemeService()),
       ],
-      child: MaterialApp(
-        title: 'UrbiConnect',
-        debugShowCheckedModeBanner: false,
-        locale: const Locale('es', 'ES'),
-        supportedLocales: const [
-          Locale('es', 'ES'),
-        ],
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF0F172A),
-            primary: const Color(0xFF0F172A),
-            secondary: const Color(0xFF4F46E5),
-            tertiary: const Color(0xFF10B981), // Success/Mint
-            surface: const Color(0xFFFFFFFF),
-            surfaceContainerHighest: const Color(0xFFF8FAFC),
-            brightness: Brightness.light,
-          ),
-          scaffoldBackgroundColor: const Color(0xFFF8FAFC),
-          textTheme: GoogleFonts.interTextTheme(
-            const TextTheme(
-              displayLarge: TextStyle(
-                  fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
-              displayMedium: TextStyle(
-                  fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
-              headlineMedium: TextStyle(
-                  fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
-              titleLarge: TextStyle(
-                  fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+      child: Consumer<ThemeService>(
+        builder: (context, themeService, child) {
+          return MaterialApp(
+            title: 'UrbiConnect',
+            debugShowCheckedModeBanner: false,
+            locale: const Locale('es', 'ES'),
+            supportedLocales: const [
+              Locale('es', 'ES'),
+            ],
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            themeMode: themeService.themeMode,
+            theme: ThemeData(
+              useMaterial3: true,
+              colorScheme: const ColorScheme(
+                brightness: Brightness.light,
+                primary: Color(0xFF1E293B), // Navy Slate
+                onPrimary: Colors.white,
+                secondary: Color(0xFF334155), // Mid Slate
+                onSecondary: Colors.white,
+                tertiary: Color(0xFF475569), // Light Navy Slate
+                onTertiary: Colors.white,
+                error: Color(0xFFB91C1C),
+                onError: Colors.white,
+                surface: Colors.white,
+                onSurface: Color(0xFF0F172A),
+                surfaceContainerHighest: Color(0xFFF1F5F9),
+                outline: Color(0xFFE2E8F0),
+                outlineVariant: Color(0xFFF1F5F9),
+              ),
+              scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+              textTheme: GoogleFonts.interTextTheme(
+                const TextTheme(
+                  displayLarge: TextStyle(
+                      fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
+                  titleLarge: TextStyle(
+                      fontWeight: FontWeight.w700, color: Color(0xFF1E293B)),
+                  bodyLarge: TextStyle(color: Color(0xFF334155)),
+                ),
+              ),
+              appBarTheme: AppBarTheme(
+                centerTitle: true,
+                backgroundColor: const Color(0xFFF8FAFC),
+                elevation: 0,
+                surfaceTintColor: Colors.transparent,
+                titleTextStyle: GoogleFonts.montserrat(
+                  color: const Color(0xFF1E293B),
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
+                iconTheme: const IconThemeData(color: Color(0xFF1E293B)),
+              ),
+              elevatedButtonTheme: ElevatedButtonThemeData(
+                style: ElevatedButton.styleFrom(
+                  elevation: 0,
+                  backgroundColor: const Color(0xFF1E293B),
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
+                  textStyle: GoogleFonts.inter(
+                      fontWeight: FontWeight.w700, fontSize: 15),
+                ),
+              ),
+              inputDecorationTheme: InputDecorationTheme(
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide:
+                      const BorderSide(color: Color(0xFF1E293B), width: 2),
+                ),
+                labelStyle: const TextStyle(color: Color(0xFF64748B)),
+                hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
+              ),
             ),
-          ).copyWith(
-            displayLarge: GoogleFonts.montserrat(
-                fontWeight: FontWeight.w900, color: const Color(0xFF0F172A)),
-            displayMedium: GoogleFonts.montserrat(
-                fontWeight: FontWeight.w800, color: const Color(0xFF0F172A)),
-            headlineLarge: GoogleFonts.montserrat(
-                fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
-          ),
-          appBarTheme: AppBarTheme(
-            centerTitle: true,
-            backgroundColor: const Color(0xFFF8FAFC),
-            elevation: 0,
-            surfaceTintColor: Colors.transparent,
-            titleTextStyle: GoogleFonts.montserrat(
-              color: const Color(0xFF0F172A),
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
+            darkTheme: ThemeData(
+              useMaterial3: true,
+              colorScheme: const ColorScheme(
+                brightness: Brightness.dark,
+                primary:
+                    Color(0xFF3B82F6), // Strong Blue for visibility on dark
+                onPrimary: Colors.white,
+                secondary: Color(0xFF94A3B8),
+                onSecondary: Colors.black,
+                tertiary: Color(0xFF1E293B),
+                onTertiary: Colors.white,
+                error: Color(0xFFEF4444),
+                onError: Colors.white,
+                surface: Color(0xFF020617), // Deep Dark Slate
+                onSurface: Color(0xFFF8FAFC),
+                surfaceContainerHighest: Color(0xFF0F172A),
+                outline: Color(0xFF1E293B),
+                outlineVariant: Color(0xFF0F172A),
+              ),
+              scaffoldBackgroundColor: const Color(0xFF020617),
+              textTheme: GoogleFonts.interTextTheme(
+                const TextTheme(
+                  displayLarge: TextStyle(
+                      fontWeight: FontWeight.w800, color: Color(0xFFF8FAFC)),
+                  titleLarge: TextStyle(
+                      fontWeight: FontWeight.w700, color: Color(0xFFF8FAFC)),
+                  bodyLarge: TextStyle(color: Color(0xFFF8FAFC)),
+                  bodyMedium: TextStyle(color: Color(0xFFF1F5F9)),
+                ),
+              ),
+              appBarTheme: AppBarTheme(
+                centerTitle: true,
+                backgroundColor: const Color(0xFF020617),
+                elevation: 0,
+                surfaceTintColor: Colors.transparent,
+                titleTextStyle: GoogleFonts.montserrat(
+                  color: const Color(0xFFF8FAFC),
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
+                iconTheme: const IconThemeData(color: Color(0xFFF8FAFC)),
+              ),
+              elevatedButtonTheme: ElevatedButtonThemeData(
+                style: ElevatedButton.styleFrom(
+                  elevation: 0,
+                  backgroundColor: const Color(0xFF3B82F6),
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
+                  textStyle: GoogleFonts.inter(
+                      fontWeight: FontWeight.w700, fontSize: 15),
+                ),
+              ),
+              inputDecorationTheme: InputDecorationTheme(
+                filled: true,
+                fillColor: const Color(0xFF0F172A),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(color: Color(0xFF1E293B)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(color: Color(0xFF1E293B)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide:
+                      const BorderSide(color: Color(0xFF3B82F6), width: 2),
+                ),
+                labelStyle: const TextStyle(color: Color(0xFF94A3B8)),
+                hintStyle: const TextStyle(color: Color(0xFF64748B)),
+              ),
             ),
-            iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
-          ),
-          cardTheme: CardThemeData(
-            elevation: 0,
-            margin: EdgeInsets.zero,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-              side: const BorderSide(color: Color(0xFFE2E8F0)), // Slate 200
-            ),
-            color: Colors.white,
-          ),
-          elevatedButtonTheme: ElevatedButtonThemeData(
-            style: ElevatedButton.styleFrom(
-              elevation: 0,
-              backgroundColor: const Color(0xFF0F172A),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16)),
-              textStyle:
-                  GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 16),
-            ),
-          ),
-          inputDecorationTheme: InputDecorationTheme(
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 2),
-            ),
-            labelStyle: const TextStyle(color: Color(0xFF64748B)),
-            hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
-          ),
-        ),
-        home: const AuthWrapper(),
+            home: const AuthWrapper(),
+          );
+        },
       ),
     );
   }
@@ -171,19 +243,24 @@ class AuthWrapper extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.mark_email_unread_outlined,
-                          size: 80, color: Colors.orange),
+                      Icon(Icons.mark_email_unread_outlined,
+                          size: 80,
+                          color: Theme.of(context).colorScheme.secondary),
                       const SizedBox(height: 24),
-                      const Text(
+                      Text(
                         'Verifica tu correo',
-                        style: TextStyle(
-                            fontSize: 24, fontWeight: FontWeight.bold),
+                        style: Theme.of(context).textTheme.headlineMedium,
                       ),
                       const SizedBox(height: 16),
                       Text(
                         'Hemos enviado un enlace a ${user.email}. Por favor, verifícalo para continuar.',
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.grey),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.color
+                                ?.withValues(alpha: 0.7)),
                       ),
                       const SizedBox(height: 32),
                       ElevatedButton(

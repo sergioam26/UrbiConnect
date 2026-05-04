@@ -158,7 +158,7 @@ class _IncidentEditScreenState extends State<IncidentEditScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('Editar los detalles de tu reporte',
-                        style: TextStyle(color: Colors.grey)),
+                        style: TextStyle(color: Color(0xFF94A3B8))),
                     const SizedBox(height: 24),
                     if (_firestoreCategories.isEmpty)
                       const LinearProgressIndicator()
@@ -179,7 +179,9 @@ class _IncidentEditScreenState extends State<IncidentEditScreen> {
                           border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16)),
                           filled: true,
-                          fillColor: Colors.grey.withValues(alpha: 0.05),
+                          fillColor: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
                         ),
                         isExpanded: true,
                       ),
@@ -191,7 +193,9 @@ class _IncidentEditScreenState extends State<IncidentEditScreen> {
                         border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16)),
                         filled: true,
-                        fillColor: Colors.grey.withValues(alpha: 0.05),
+                        fillColor: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest,
                         counterText: '',
                       ),
                       maxLength: 100,
@@ -207,7 +211,9 @@ class _IncidentEditScreenState extends State<IncidentEditScreen> {
                         border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16)),
                         filled: true,
-                        fillColor: Colors.grey.withValues(alpha: 0.05),
+                        fillColor: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest,
                         alignLabelWithHint: true,
                       ),
                       maxLines: 4,
@@ -335,12 +341,13 @@ class _IncidentEditScreenState extends State<IncidentEditScreen> {
                 child: Container(
                   width: 100,
                   decoration: BoxDecoration(
-                    color: Colors.grey[200],
+                    color:
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey[400]!),
+                    border: Border.all(color: Theme.of(context).dividerColor),
                   ),
-                  child: const Icon(Icons.add_a_photo_outlined,
-                      color: Colors.grey),
+                  child: Icon(Icons.add_a_photo_outlined,
+                      color: Theme.of(context).textTheme.bodySmall?.color),
                 ),
               ),
             ],
@@ -381,8 +388,11 @@ class _IncidentEditScreenState extends State<IncidentEditScreen> {
   Future<void> _pickImage(ImageSource source) async {
     try {
       if (source == ImageSource.gallery) {
-        final List<XFile> pickedFiles =
-            await _picker.pickMultiImage(imageQuality: 50);
+        final List<XFile> pickedFiles = await _picker.pickMultiImage(
+          imageQuality: 50,
+          maxWidth: 1024,
+          maxHeight: 1024,
+        );
         if (pickedFiles.isNotEmpty) {
           for (var pickedFile in pickedFiles) {
             // Validación de tipo de archivo mejorada
@@ -447,8 +457,12 @@ class _IncidentEditScreenState extends State<IncidentEditScreen> {
           }
         }
       } else {
-        final XFile? pickedFile =
-            await _picker.pickImage(source: source, imageQuality: 50);
+        final XFile? pickedFile = await _picker.pickImage(
+          source: source,
+          imageQuality: 50,
+          maxWidth: 1024,
+          maxHeight: 1024,
+        );
         if (pickedFile != null) {
           // Validación de tipo de archivo mejorada
           final String fileName = pickedFile.name.toLowerCase();

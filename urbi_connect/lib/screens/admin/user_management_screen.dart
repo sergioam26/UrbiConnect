@@ -31,15 +31,15 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text(
           'Usuarios del sistema',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF0F172A),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        foregroundColor: Theme.of(context).textTheme.titleLarge?.color,
         actions: [
           IconButton(
             onPressed: () => _showBroadcastDialog(context),
@@ -55,7 +55,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       body: Column(
         children: [
           Container(
-            color: Colors.white,
+            color: Theme.of(context).scaffoldBackgroundColor,
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: TextField(
               controller: _searchController,
@@ -63,9 +63,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   setState(() => _searchQuery = value.toLowerCase()),
               decoration: InputDecoration(
                 hintText: 'Buscar por nombre o email...',
-                prefixIcon: const Icon(Icons.search, color: Color(0xFF64748B)),
+                prefixIcon: Icon(Icons.search,
+                    color: Theme.of(context).textTheme.bodySmall?.color),
                 filled: true,
-                fillColor: const Color(0xFFF1F5F9),
+                fillColor:
+                    Theme.of(context).colorScheme.surfaceContainerHighest,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide.none,
@@ -104,12 +106,14 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.person_off_rounded,
-                            size: 64, color: Colors.grey[300]),
+                            size: 64, color: Theme.of(context).dividerColor),
                         const SizedBox(height: 16),
                         Text(
                           'No se encontraron usuarios',
-                          style:
-                              TextStyle(color: Colors.grey[600], fontSize: 16),
+                          style: TextStyle(
+                              color:
+                                  Theme.of(context).textTheme.bodySmall?.color,
+                              fontSize: 16),
                         ),
                       ],
                     ),
@@ -173,10 +177,14 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       padding: const EdgeInsets.only(left: 8, bottom: 12),
       child: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w800,
-          color: Color(0xFF64748B),
+          color: Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.color
+              ?.withValues(alpha: 0.7),
           letterSpacing: 1.2,
         ),
       ),
@@ -285,7 +293,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 OutlinedButton.icon(
                   onPressed: () async {
                     final XFile? image = await picker.pickImage(
-                        source: ImageSource.gallery, imageQuality: 50);
+                      source: ImageSource.gallery,
+                      imageQuality: 50,
+                      maxWidth: 1024,
+                      maxHeight: 1024,
+                    );
                     if (image == null) return;
 
                     // Validación de tipo de archivo mejorada
@@ -371,9 +383,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       if (titleController.text.isEmpty ||
                           messageController.text.isEmpty ||
                           (!targetCitizens && !targetResponsibles)) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                            content: Text(
-                                'Por favor, rellena todos los campos y selecciona al menos un grupo destinatario.')));
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                              content: Text(
+                                  'Por favor, rellena todos los campos y selecciona al menos un grupo destinatario.')));
+                        }
                         return;
                       }
 
@@ -457,11 +471,14 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(
+                alpha: Theme.of(context).brightness == Brightness.dark
+                    ? 0.3
+                    : 0.04),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -485,10 +502,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       children: [
                         Text(
                           '${user.name} ${user.surnames}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 15,
-                            color: Color(0xFF1E293B),
+                            color: Theme.of(context).textTheme.bodyLarge?.color,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -496,7 +513,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                           user.email,
                           style: TextStyle(
                             fontSize: 13,
-                            color: Colors.grey[600],
+                            color: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.color
+                                ?.withValues(alpha: 0.7),
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -558,11 +579,12 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           )
         : CircleAvatar(
             radius: 26,
-            backgroundColor: const Color(0xFFF1F5F9),
+            backgroundColor:
+                Theme.of(context).colorScheme.surfaceContainerHighest,
             child: Text(
               user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-              style: const TextStyle(
-                color: Color(0xFF64748B),
+              style: TextStyle(
+                color: Theme.of(context).textTheme.bodyMedium?.color,
                 fontWeight: FontWeight.bold,
                 fontSize: 18,
               ),
@@ -648,12 +670,21 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   controller: controller,
                   maxLines: 3,
                   onChanged: (val) => setDialogState(() => currentText = val),
+                  style: TextStyle(
+                      color: Theme.of(context).textTheme.bodyLarge?.color),
                   decoration: InputDecoration(
                     hintText: 'Escribe el primer mensaje...',
+                    hintStyle: TextStyle(
+                        color: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.color
+                            ?.withValues(alpha: 0.6)),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16)),
                     filled: true,
-                    fillColor: Colors.grey[50],
+                    fillColor:
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -681,7 +712,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       ? null
                       : () async {
                           final XFile? image = await picker.pickImage(
-                              source: ImageSource.gallery, imageQuality: 50);
+                            source: ImageSource.gallery,
+                            imageQuality: 50,
+                            maxWidth: 1024,
+                            maxHeight: 1024,
+                          );
                           if (image == null) return;
 
                           // Validación de tipo de archivo mejorada
@@ -780,8 +815,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (_) => SupportChatScreen(
-                                  ticketId: ticketId, isAdmin: true)),
+                            builder: (_) => SupportChatScreen(
+                                ticketId: ticketId, isAdmin: true),
+                          ),
                         );
                       }
                     },
@@ -850,7 +886,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       ? null
                       : () async {
                           final XFile? image = await picker.pickImage(
-                              source: ImageSource.gallery, imageQuality: 50);
+                            source: ImageSource.gallery,
+                            imageQuality: 50,
+                            maxWidth: 1024,
+                            maxHeight: 1024,
+                          );
                           if (image == null) return;
 
                           // Validación de tipo de archivo mejorada
@@ -939,7 +979,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   ? null
                   : () async {
                       if (titleController.text.isEmpty ||
-                          bodyController.text.isEmpty) return;
+                          bodyController.text.isEmpty) {
+                        return;
+                      }
                       setDialogState(() => isSaving = true);
                       await NotificationService().sendNotification(
                         userId: user.uid,
@@ -952,8 +994,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       if (context.mounted) {
                         Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('Notificación enviada')));
+                          const SnackBar(content: Text('Notificación enviada')),
+                        );
                       }
                     },
               style: ElevatedButton.styleFrom(
@@ -1083,7 +1125,9 @@ class _RoleAssignmentSheetState extends State<RoleAssignmentSheet> {
                   .collection('Categoria')
                   .snapshots(),
               builder: (context, snapshot) {
-                if (!snapshot.hasData) return const CircularProgressIndicator();
+                if (!snapshot.hasData) {
+                  return const CircularProgressIndicator();
+                }
                 final categories = snapshot.data!.docs;
                 return Wrap(
                   spacing: 8,
@@ -1131,7 +1175,9 @@ class _RoleAssignmentSheetState extends State<RoleAssignmentSheet> {
   }
 
   Future<void> _saveChanges() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+    });
     try {
       await DatabaseService().updateUserRoleAndCategories(
         widget.user.uid,
@@ -1154,7 +1200,11 @@ class _RoleAssignmentSheetState extends State<RoleAssignmentSheet> {
         );
       }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 }

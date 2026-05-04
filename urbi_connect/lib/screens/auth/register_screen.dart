@@ -76,12 +76,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final authService = Provider.of<AuthService>(context);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Registro'),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF0F172A),
-        elevation: 0,
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -93,11 +90,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.surface,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
+                        color: Colors.black.withValues(
+                            alpha:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? 0.3
+                                    : 0.05),
                         blurRadius: 20,
                         offset: const Offset(0, 10),
                       ),
@@ -110,32 +111,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Text(
+                Text(
                   'UrbiConnect',
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w900,
-                    color: Color(0xFF0F172A),
+                    color: Theme.of(context).colorScheme.primary,
                     letterSpacing: -1,
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'Gestión de incidencias y comunicación con tu ayuntamiento',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFF64748B),
+                    color: Theme.of(context)
+                        .textTheme
+                        .bodyMedium
+                        ?.color
+                        ?.withValues(alpha: 0.7),
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   'Crea tu cuenta',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF0F172A),
+                    color: Theme.of(context).textTheme.titleMedium?.color,
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -222,7 +227,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         _obscurePassword
                             ? Icons.visibility_off
                             : Icons.visibility,
-                        color: const Color(0xFF0F172A),
+                        color: Theme.of(context).iconTheme.color,
                       ),
                       onPressed: () {
                         setState(() {
@@ -257,7 +262,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         _obscureConfirmPassword
                             ? Icons.visibility_off
                             : Icons.visibility,
-                        color: const Color(0xFF0F172A),
+                        color: Theme.of(context).iconTheme.color,
                       ),
                       onPressed: () {
                         setState(() {
@@ -286,8 +291,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     onPressed:
                         _isLoading ? null : () => _handleRegister(authService),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0F172A),
-                      foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                     ),
@@ -303,15 +306,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Row(
+                Row(
                   children: [
-                    Expanded(child: Divider()),
+                    Expanded(
+                        child: Divider(
+                            color: Theme.of(context)
+                                .dividerColor
+                                .withValues(alpha: 0.2))),
                     Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Text('O regístrate rápido con',
-                          style: TextStyle(color: Colors.grey, fontSize: 12)),
+                          style: TextStyle(
+                              color: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.color
+                                  ?.withValues(alpha: 0.7),
+                              fontSize: 12)),
                     ),
-                    Expanded(child: Divider()),
+                    Expanded(
+                        child: Divider(
+                            color: Theme.of(context)
+                                .dividerColor
+                                .withValues(alpha: 0.2))),
                   ],
                 ),
                 const SizedBox(height: 16),

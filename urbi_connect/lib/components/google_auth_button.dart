@@ -26,13 +26,18 @@ class _GoogleAuthButtonState extends State<GoogleAuthButton> {
             : () async {
                 final messenger = ScaffoldMessenger.of(context);
                 setState(() => _isLoading = true);
-                final error = await authService.signInWithGoogle();
-                if (!mounted) return;
-                setState(() => _isLoading = false);
-                if (error != null) {
-                  messenger.showSnackBar(
-                    SnackBar(content: Text(error)),
-                  );
+                try {
+                  final error = await authService.signInWithGoogle();
+                  if (!mounted) return;
+                  if (error != null) {
+                    messenger.showSnackBar(
+                      SnackBar(content: Text(error)),
+                    );
+                  }
+                } finally {
+                  if (mounted) {
+                    setState(() => _isLoading = false);
+                  }
                 }
               },
         icon: _isLoading
@@ -49,12 +54,11 @@ class _GoogleAuthButtonState extends State<GoogleAuthButton> {
                     size: 24,
                     color: Colors.blue),
               ),
-        label:
-            Text(widget.label, style: const TextStyle(color: Colors.black87)),
+        label: Text(widget.label),
         style: OutlinedButton.styleFrom(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          side: const BorderSide(color: Colors.grey),
+          side: BorderSide(color: Theme.of(context).dividerColor),
         ),
       ),
     );

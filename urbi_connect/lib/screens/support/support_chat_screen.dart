@@ -39,8 +39,12 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
   }
 
   Future<void> _sendImage() async {
-    final XFile? image =
-        await _picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
+    final XFile? image = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 50,
+      maxWidth: 1024,
+      maxHeight: 1024,
+    );
     if (image == null) return;
 
     // Validación de tipo de archivo mejorado
@@ -146,7 +150,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
           final String status = ticketData['estado'] ?? 'Abierto';
 
           return Scaffold(
-            backgroundColor: const Color(0xFFFBFBFF),
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             appBar: AppBar(
               title: const Text(
                 'Chat de soporte',
@@ -169,9 +173,6 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
                         itemBuilder: (context) => [
                           const PopupMenuItem(
                               value: 'Abierto', child: Text('Marcar abierto')),
-                          const PopupMenuItem(
-                              value: 'En proceso',
-                              child: Text('Marcar en proceso')),
                           const PopupMenuItem(
                               value: 'Cerrado', child: Text('Marcar cerrado')),
                         ],
@@ -205,12 +206,13 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
                       final sortedMessages =
                           List<QueryDocumentSnapshot>.from(messages);
                       sortedMessages.sort((a, b) {
-                        final dateA =
-                            (a.get('fecha') as Timestamp?)?.toDate() ??
-                                DateTime.now();
-                        final dateB =
-                            (b.get('fecha') as Timestamp?)?.toDate() ??
-                                DateTime.now();
+                        final timestampA = (a.data()
+                            as Map<String, dynamic>)['fecha'] as Timestamp?;
+                        final timestampB = (b.data()
+                            as Map<String, dynamic>)['fecha'] as Timestamp?;
+
+                        final dateA = timestampA?.toDate() ?? DateTime.now();
+                        final dateB = timestampB?.toDate() ?? DateTime.now();
                         return dateB.compareTo(
                             dateA); // Descending for reversed ListView
                       });
@@ -256,17 +258,12 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         border: Border(
-            bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.1))),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 5,
-              offset: const Offset(0, 2)),
-        ],
+            bottom: BorderSide(
+                color: Theme.of(context).dividerColor.withValues(alpha: 1))),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -284,39 +281,76 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
               _buildStatusSmall(data['estado']),
             ],
           ),
-          const SizedBox(height: 12),
-          if (imageUrl != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12.0),
-              child: GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => Scaffold(
-                      backgroundColor: Colors.black,
-                      body: InkWell(
-                        onTap: () => Navigator.pop(context),
-                        child: Center(child: Image.network(imageUrl)),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .primary
+                      .withValues(alpha: 0.1)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.info_outline,
+                        size: 14, color: Theme.of(context).colorScheme.primary),
+                    const SizedBox(width: 8),
+                    Text(
+                      'MENSAJE INICIAL:',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                        letterSpacing: 1.2,
                       ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  data['descripcion'] ?? 'Sin descripción',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (imageUrl != null) ...[
+            const SizedBox(height: 16),
+            GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => Scaffold(
+                    backgroundColor: Colors.black,
+                    body: InkWell(
+                      onTap: () => Navigator.pop(context),
+                      child: Center(child: Image.network(imageUrl)),
                     ),
                   ),
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    imageUrl,
-                    height: 150,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                  ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.network(
+                  imageUrl,
+                  height: 200,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
                 ),
               ),
             ),
-          Text(
-            data['descripcion'] ?? 'Sin descripción',
-            style: const TextStyle(
-                fontSize: 13, color: Colors.black87, height: 1.4),
-          ),
+          ],
         ],
       ),
     );
@@ -326,13 +360,10 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
     Color color;
     switch (status) {
       case 'Abierto':
-        color = Colors.red;
-        break;
-      case 'En proceso':
-        color = Colors.orange;
+        color = Colors.green;
         break;
       case 'Cerrado':
-        color = Colors.green;
+        color = Colors.red;
         break;
       default:
         color = Colors.grey;
@@ -379,7 +410,9 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: isMe ? const Color(0xFF0F172A) : Colors.white,
+                color: isMe
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(20),
                   topRight: const Radius.circular(20),
@@ -389,7 +422,11 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
                 boxShadow: [
                   if (!isMe)
                     BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
+                        color: Colors.black.withValues(
+                            alpha:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? 0.3
+                                    : 0.05),
                         blurRadius: 5,
                         offset: const Offset(0, 2)),
                 ],
@@ -420,7 +457,9 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
                     Text(
                       text,
                       style: TextStyle(
-                          color: isMe ? Colors.white : Colors.black87,
+                          color: isMe
+                              ? Theme.of(context).colorScheme.onPrimary
+                              : Theme.of(context).colorScheme.onSurface,
                           fontSize: 14,
                           height: 1.4),
                     ),
@@ -429,7 +468,15 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
                     DateFormat('HH:mm').format(date),
                     style: TextStyle(
                         fontSize: 10,
-                        color: isMe ? Colors.white70 : Colors.black45),
+                        color: isMe
+                            ? Theme.of(context)
+                                .colorScheme
+                                .onPrimary
+                                .withValues(alpha: 0.7)
+                            : Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant
+                                .withValues(alpha: 0.7)),
                   ),
                 ],
               ),
@@ -468,20 +515,24 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
       return Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         decoration: BoxDecoration(
-          color: Colors.grey[50],
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
           border: Border(
-              top: BorderSide(color: Colors.grey.withValues(alpha: 0.1))),
+              top: BorderSide(
+                  color:
+                      Theme.of(context).dividerColor.withValues(alpha: 0.1))),
         ),
-        child: const Center(
+        child: Center(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.lock_outline_rounded, size: 16, color: Colors.grey),
-              SizedBox(width: 8),
+              Icon(Icons.lock_outline_rounded,
+                  size: 16,
+                  color: Theme.of(context).textTheme.bodySmall?.color),
+              const SizedBox(width: 8),
               Text(
                 'Este ticket ha sido cerrado y no admite más mensajes.',
                 style: TextStyle(
-                    color: Colors.grey,
+                    color: Theme.of(context).textTheme.bodySmall?.color,
                     fontSize: 13,
                     fontWeight: FontWeight.w500),
               ),
@@ -497,7 +548,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
       return Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         decoration: BoxDecoration(
-          color: Colors.amber[50],
+          color: Colors.amber.withValues(alpha: 0.1),
           border: Border(
               top: BorderSide(color: Colors.amber.withValues(alpha: 0.1))),
         ),
@@ -511,8 +562,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
       );
     }
 
-    final bool canChat =
-        widget.isAdmin || (status == 'Abierto') || (status == 'En proceso');
+    final bool canChat = widget.isAdmin || (status == 'Abierto');
 
     if (!canChat) {
       String messageText =
@@ -523,21 +573,25 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
       return Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
         decoration: BoxDecoration(
-          color: Colors.blue[50],
+          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
           border: Border(
-              top: BorderSide(color: Colors.blue.withValues(alpha: 0.1))),
+              top: BorderSide(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .primary
+                      .withValues(alpha: 0.1))),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.hourglass_empty_rounded,
-                color: Colors.blue, size: 24),
+            Icon(Icons.hourglass_empty_rounded,
+                color: Theme.of(context).colorScheme.primary, size: 24),
             const SizedBox(height: 8),
             Text(
               messageText,
               textAlign: TextAlign.center,
               style: TextStyle(
-                  color: Colors.blue[800],
+                  color: Theme.of(context).colorScheme.primary,
                   fontSize: 13,
                   fontWeight: FontWeight.w500),
             ),
@@ -549,10 +603,13 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: Colors.black.withValues(
+                  alpha: Theme.of(context).brightness == Brightness.dark
+                      ? 0.3
+                      : 0.05),
               blurRadius: 10,
               offset: const Offset(0, -5))
         ],
@@ -567,20 +624,29 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
           Row(
             children: [
               IconButton(
-                icon:
-                    const Icon(Icons.image_outlined, color: Color(0xFF0F172A)),
+                icon: Icon(Icons.image_outlined,
+                    color: Theme.of(context).colorScheme.primary),
                 onPressed: _isUploading ? null : _sendImage,
               ),
               Expanded(
                 child: TextField(
                   controller: _messageController,
+                  style: TextStyle(
+                      color: Theme.of(context).textTheme.bodyLarge?.color),
                   decoration: InputDecoration(
                     hintText: 'Escribe un mensaje...',
+                    hintStyle: TextStyle(
+                        color: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.color
+                            ?.withValues(alpha: 0.6)),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(24),
                         borderSide: BorderSide.none),
                     filled: true,
-                    fillColor: Colors.grey[100],
+                    fillColor:
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
                     contentPadding: const EdgeInsets.symmetric(
                         horizontal: 20, vertical: 10),
                   ),
@@ -589,7 +655,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
               ),
               const SizedBox(width: 8),
               CircleAvatar(
-                backgroundColor: const Color(0xFF0F172A),
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 child: IconButton(
                   onPressed: _sendMessage,
                   icon: const Icon(Icons.send_rounded,

@@ -24,7 +24,9 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
 
   Future<void> _checkCleanup() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      return;
+    }
 
     final userDoc = await FirebaseFirestore.instance
         .collection('users')
@@ -39,7 +41,9 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return const SizedBox();
+    if (user == null) {
+      return const SizedBox();
+    }
 
     return FutureBuilder<DocumentSnapshot>(
       future:
@@ -56,7 +60,7 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
         return DefaultTabController(
           length: isAdmin ? 3 : 2,
           child: Scaffold(
-            backgroundColor: const Color(0xFFF8FAFC),
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             appBar: AppBar(
               centerTitle: true,
               title: const Text(
@@ -64,17 +68,19 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               elevation: 0,
-              backgroundColor: Colors.white,
-              foregroundColor: const Color(0xFF0F172A),
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+              foregroundColor: Theme.of(context).textTheme.titleLarge?.color,
               bottom: TabBar(
                 isScrollable: false,
-                labelColor: const Color(0xFF0F172A),
-                indicatorColor: const Color(0xFF0F172A),
+                labelColor: Theme.of(context).colorScheme.primary,
+                indicatorColor: Theme.of(context).colorScheme.primary,
                 indicatorSize: TabBarIndicatorSize.tab,
                 labelStyle:
                     const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 unselectedLabelStyle: const TextStyle(
                     fontWeight: FontWeight.normal, fontSize: 13),
+                unselectedLabelColor:
+                    Theme.of(context).textTheme.bodySmall?.color,
                 tabs: isAdmin
                     ? [
                         const Tab(text: 'Tickets'),
@@ -162,73 +168,90 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
 
     // Determinar etiqueta de estado para Admin
     String statusLabel = 'Pendiente';
-    Color statusColor = Colors.orange;
+    Color statusColor = const Color(0xFFF59E0B); // Amber
 
-    if (status == 'Abierto' || status == 'En proceso') {
+    if (status == 'Abierto') {
       statusLabel = 'Activo';
       statusColor = Colors.green;
     } else if (status == 'Cerrado') {
       if (isDirect) {
         statusLabel = 'Finalizado';
-        statusColor = Colors.grey;
+        statusColor = Colors.red;
       } else {
-        // Si es un ticket de usuario y sigue cerrado, es que no hemos respondido
-        statusLabel = 'Pendiente';
-        statusColor = Colors.orange;
+        statusLabel = 'Cerrado';
+        statusColor = Colors.red;
       }
     }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+            color: Theme.of(context).dividerColor.withValues(alpha: 0.1)),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
+              color: Colors.black.withValues(
+                  alpha: Theme.of(context).brightness == Brightness.dark
+                      ? 0.3
+                      : 0.04),
               blurRadius: 10,
               offset: const Offset(0, 4))
         ],
       ),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16, vertical: 4), // Reducido vertical de 8 a 4
         leading: _buildUserAvatar(userId ?? '', isGuest, data),
         title: _buildSenderName(userId ?? '', isGuest, data, isAdmin),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(lastMessage,
                 style: TextStyle(
                     fontSize: 13,
-                    color: isUnreadByAdmin ? Colors.black : Colors.grey[600],
+                    color: isUnreadByAdmin
+                        ? Theme.of(context).textTheme.bodyLarge?.color
+                        : Theme.of(context).textTheme.bodySmall?.color,
                     fontWeight:
                         isUnreadByAdmin ? FontWeight.bold : FontWeight.normal),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             Row(
               children: [
                 Text(DateFormat('dd/MM HH:mm').format(lastUpdate),
-                    style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.color
+                            ?.withValues(alpha: 0.5))),
               ],
             ),
           ],
         ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            if (isAdmin && !isGuest && userId != null) ...[
-              _buildUserRoleBadge(userId),
-              const SizedBox(height: 4),
+        trailing: SizedBox(
+          width: 90, // Fijar ancho para evitar saltos
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min, // Crítico para evitar overflow
+            children: [
+              if (isAdmin && !isGuest && userId != null) ...[
+                _buildUserRoleBadge(userId),
+                const SizedBox(height: 2), // Reducido de 4 a 2
+              ],
+              if (isGuest) ...[
+                _buildBadge('Invitado', const Color(0xFFF59E0B)), // Amber
+                const SizedBox(height: 2),
+              ],
+              _buildBadge(statusLabel, statusColor),
             ],
-            if (isGuest) ...[
-              _buildBadge('Invitado', Colors.orange[800]!),
-              const SizedBox(height: 4),
-            ],
-            _buildBadge(statusLabel, statusColor),
-          ],
+          ),
         ),
         onTap: () => Navigator.push(
           context,
@@ -244,19 +267,20 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
     return FutureBuilder<DocumentSnapshot>(
       future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData || !snapshot.data!.exists)
+        if (!snapshot.hasData || !snapshot.data!.exists) {
           return const SizedBox();
+        }
         final userData = snapshot.data!.data() as Map<String, dynamic>?;
         final String role = (userData?['rol'] ?? '').toString().toLowerCase();
 
-        Color color = Colors.blue;
+        Color color = const Color(0xFF3B82F6); // Blue 500
         String text = 'Ciudadano';
 
         if (role.contains('responsable')) {
-          color = Colors.purple;
+          color = const Color(0xFF0F172A); // Slate 900
           text = 'Responsable';
         } else if (role.contains('admin')) {
-          color = Colors.red;
+          color = const Color(0xFFEF4444); // Red 500
           text = 'Admin';
         }
 
@@ -267,17 +291,21 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
 
   Widget _buildBadge(String text, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      width: 90, // Ancho fijo para uniformidad
+      padding: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: color,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
+      child: Center(
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: color,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
     );
@@ -289,10 +317,13 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.chat_bubble_outline_rounded,
-              size: 64, color: Colors.grey[300]),
+              size: 64,
+              color: Theme.of(context).dividerColor.withValues(alpha: 0.3)),
           const SizedBox(height: 16),
           Text(message,
-              style: TextStyle(color: Colors.grey[600], fontSize: 16),
+              style: TextStyle(
+                  color: Theme.of(context).textTheme.bodySmall?.color,
+                  fontSize: 16),
               textAlign: TextAlign.center),
         ],
       ),
@@ -323,11 +354,12 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
 
   Widget _buildUserAvatar(
       String userId, bool isGuest, Map<String, dynamic> data) {
-    if (isGuest)
+    if (isGuest) {
       return CircleAvatar(
           radius: 24,
           backgroundColor: Colors.grey[100],
           child: const Icon(Icons.person_outline_rounded, color: Colors.grey));
+    }
     return FutureBuilder<DocumentSnapshot>(
       future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
       builder: (context, snapshot) {
@@ -518,14 +550,24 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
                       return Container(
                         margin: const EdgeInsets.only(bottom: 12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF0F7FF),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withValues(alpha: 0.05),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                              color: Colors.indigo.withValues(alpha: 0.15),
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .primary
+                                  .withValues(alpha: 0.15),
                               width: 1),
                           boxShadow: [
                             BoxShadow(
-                                color: Colors.indigo.withValues(alpha: 0.05),
+                                color: Colors.black.withValues(
+                                    alpha: Theme.of(context).brightness ==
+                                            Brightness.dark
+                                        ? 0.3
+                                        : 0.05),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4))
                           ],
@@ -534,10 +576,12 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
                           contentPadding: const EdgeInsets.all(16),
                           leading: Container(
                             padding: const EdgeInsets.all(10),
-                            decoration: const BoxDecoration(
-                                color: Colors.white, shape: BoxShape.circle),
-                            child: const Icon(Icons.campaign_rounded,
-                                color: Color(0xFF6366F1), size: 24),
+                            decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.surface,
+                                shape: BoxShape.circle),
+                            child: Icon(Icons.campaign_rounded,
+                                color: Theme.of(context).colorScheme.primary,
+                                size: 24),
                           ),
                           title: Row(
                             children: [
@@ -547,7 +591,8 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
                                         fontWeight: FontWeight.bold,
                                         fontSize: 15)),
                               ),
-                              _buildBadge('OFICIAL', Colors.indigo),
+                              _buildBadge('OFICIAL',
+                                  Theme.of(context).colorScheme.primary),
                             ],
                           ),
                           subtitle: Column(
@@ -576,7 +621,11 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
                                 ),
                               Text(data['mensaje'] ?? '',
                                   style: TextStyle(
-                                      fontSize: 13, color: Colors.grey[800]),
+                                      fontSize: 13,
+                                      color: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.color),
                                   maxLines: 4,
                                   overflow: TextOverflow.ellipsis),
                               const SizedBox(height: 12),
@@ -588,7 +637,11 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
                                           .format(date),
                                       style: TextStyle(
                                           fontSize: 11,
-                                          color: Colors.grey[500],
+                                          color: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.color
+                                              ?.withValues(alpha: 0.5),
                                           fontWeight: FontWeight.w500)),
                                   const SizedBox(height: 4),
                                   if (isAdmin &&
@@ -609,22 +662,29 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
                                               '${userData['nombre']} ${userData['apellidos']}';
                                         }
                                         return Text('Para: $userName',
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                                 fontSize: 10,
-                                                color: Color(0xFF6366F1),
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .primary,
                                                 fontWeight: FontWeight.bold),
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis);
                                       },
                                     )
                                   else
-                                    Text(targetText,
-                                        style: const TextStyle(
-                                            fontSize: 10,
-                                            color: Color(0xFF6366F1),
-                                            fontWeight: FontWeight.bold),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis),
+                                    Text(
+                                      targetText,
+                                      style: TextStyle(
+                                          fontSize: 10,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .primary,
+                                          fontWeight: FontWeight.bold),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      softWrap: true,
+                                    ),
                                 ],
                               ),
                             ],
@@ -654,18 +714,29 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
             final isSelected = _broadcastFilter.value == filter;
             return Padding(
               padding: const EdgeInsets.only(right: 8),
-              child: FilterChip(
-                label: Text(filter,
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: isSelected ? Colors.white : Colors.indigo)),
-                selected: isSelected,
-                selectedColor: Colors.indigo,
-                checkmarkColor: Colors.white,
-                onSelected: (selected) {
-                  if (selected) _broadcastFilter.value = filter;
-                },
-              ),
+              child: ValueListenableBuilder<String>(
+                  valueListenable: _broadcastFilter,
+                  builder: (context, currentFilter, _) {
+                    final isSelected = currentFilter == filter;
+                    return FilterChip(
+                      label: Text(filter,
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: isSelected
+                                  ? Theme.of(context).colorScheme.onPrimary
+                                  : Theme.of(context).colorScheme.primary)),
+                      selected: isSelected,
+                      selectedColor: Theme.of(context).colorScheme.primary,
+                      checkmarkColor: Theme.of(context).colorScheme.onPrimary,
+                      onSelected: (selected) {
+                        if (selected) _broadcastFilter.value = filter;
+                      },
+                      backgroundColor: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withValues(alpha: 0.1),
+                    );
+                  }),
             );
           }).toList(),
         ),
@@ -816,14 +887,24 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: isUnread ? const Color(0xFFF0F7FF) : Colors.white,
+        color: isUnread
+            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.05)
+            : Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
         border: isUnread
-            ? Border.all(color: Colors.indigo.withValues(alpha: 0.1))
-            : null,
+            ? Border.all(
+                color: Theme.of(context)
+                    .colorScheme
+                    .primary
+                    .withValues(alpha: 0.1))
+            : Border.all(
+                color: Theme.of(context).dividerColor.withValues(alpha: 0.1)),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
+              color: Colors.black.withValues(
+                  alpha: Theme.of(context).brightness == Brightness.dark
+                      ? 0.3
+                      : 0.04),
               blurRadius: 10,
               offset: const Offset(0, 4))
         ],
@@ -834,15 +915,17 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
           width: 50,
           height: 50,
           decoration: BoxDecoration(
-              color: Colors.indigo[50],
+              color:
+                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12)),
-          child:
-              const Icon(Icons.shield_outlined, color: Colors.indigo, size: 24),
+          child: Icon(Icons.shield_outlined,
+              color: Theme.of(context).colorScheme.primary, size: 24),
         ),
         title: Text(title,
             style: TextStyle(
                 fontWeight: isUnread ? FontWeight.bold : FontWeight.w600,
-                fontSize: 15)),
+                fontSize: 15,
+                color: Theme.of(context).textTheme.titleMedium?.color)),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -851,13 +934,22 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                     fontSize: 13,
-                    color: isUnread ? Colors.black87 : Colors.grey[600])),
+                    color: isUnread
+                        ? Theme.of(context).textTheme.bodyLarge?.color
+                        : Theme.of(context).textTheme.bodySmall?.color)),
             const SizedBox(height: 4),
             Text(DateFormat('dd/MM HH:mm').format(date),
-                style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+                style: TextStyle(
+                    fontSize: 11,
+                    color: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.color
+                        ?.withValues(alpha: 0.5))),
           ],
         ),
-        trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+        trailing: Icon(Icons.chevron_right_rounded,
+            color: Theme.of(context).textTheme.bodySmall?.color),
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(
@@ -877,11 +969,16 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+            color: Theme.of(context).dividerColor.withValues(alpha: 0.1)),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
+              color: Colors.black.withValues(
+                  alpha: Theme.of(context).brightness == Brightness.dark
+                      ? 0.3
+                      : 0.04),
               blurRadius: 10,
               offset: const Offset(0, 4))
         ],
@@ -892,7 +989,7 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
           width: 50,
           height: 50,
           decoration: BoxDecoration(
-            color: Colors.grey[100],
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(12),
             image: imageUrl != null
                 ? DecorationImage(
@@ -905,32 +1002,21 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
               : null,
         ),
         title: Text(title,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+                color: Theme.of(context).textTheme.titleMedium?.color)),
         subtitle: Text('ID #${doc.id.substring(0, 5).toUpperCase()} • $status',
-            style: const TextStyle(fontSize: 12)),
-        trailing:
-            const Icon(Icons.chat_bubble_rounded, color: Color(0xFF0F172A)),
+            style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).textTheme.bodySmall?.color)),
+        trailing: Icon(Icons.chat_bubble_rounded,
+            color: Theme.of(context).colorScheme.primary),
         onTap: () => Navigator.push(
             context,
             MaterialPageRoute(
                 builder: (context) => ChatScreen(incidentId: doc.id))),
       ),
     );
-  }
-
-  Widget _buildIncidentChatsList(BuildContext context, String currentUserId,
-      bool isResponsible, List<String> categories) {
-    // This is now replaced by _buildUserDirectAndIncidentChatsList but kept for potential legacy reference if needed
-    // However, I've updated the build method to use the new one.
-    return const SizedBox();
-  }
-
-  String _formatRole(String role) {
-    final r = role.toLowerCase();
-    if (r == 'admin') return 'Admin';
-    if (r == 'ciudadano') return 'Ciudadano';
-    if (r == 'responsable' || r == 'responsable municipal')
-      return 'Responsable municipal';
-    return r;
   }
 }

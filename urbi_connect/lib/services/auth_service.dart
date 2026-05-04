@@ -13,47 +13,72 @@ class AuthService with ChangeNotifier {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
 
+  AuthService() {
+    _auth.setLanguageCode('es');
+  }
+
   Stream<User?> get user => _auth.authStateChanges();
+
+  // Helper para manejar timeouts y errores de red
+  Future<T> _withTimeout<T>(Future<T> operation, {String? actionName}) async {
+    try {
+      return await operation.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () =>
+            throw Exception('La conexión es lenta. Por favor, reintenta.'),
+      );
+    } catch (e) {
+      debugPrint('Error en ${actionName ?? 'operación'}: $e');
+      if (e.toString().contains('network-request-failed') ||
+          e.toString().contains('unavailable')) {
+        throw Exception(
+            'Sin conexión estable. La operación se reintentará automáticamente.');
+      }
+      rethrow;
+    }
+  }
 
   // Sign in with Email/Username and Password
   Future<String?> signIn(String identifier, String password) async {
-    try {
-      String email = identifier;
+    return _withTimeout(() async {
+      try {
+        String email = identifier;
 
-      // Si no parece un email (no tiene @), buscamos el email asociado al usuario en Firestore
-      if (!identifier.contains('@')) {
-        final userQuery = await _db
-            .collection('users')
-            .where('usuario', isEqualTo: identifier)
-            .limit(1)
-            .get();
+        if (!identifier.contains('@')) {
+          final userQuery = await _db
+              .collection('users')
+              .where('usuario', isEqualTo: identifier)
+              .limit(1)
+              .get();
 
-        if (userQuery.docs.isEmpty) {
-          return 'El nombre de usuario no existe.';
+          if (userQuery.docs.isEmpty) {
+            return 'El nombre de usuario no existe.';
+          }
+          email = userQuery.docs.first.get('email');
         }
-        email = userQuery.docs.first.get('email');
-      }
 
-      await _auth.signInWithEmailAndPassword(email: email, password: password);
-      return null; // Éxito
-    } on FirebaseAuthException catch (e) {
-      switch (e.code) {
-        case 'user-not-found':
-          return 'No existe ninguna cuenta con este email.';
-        case 'wrong-password':
-          return 'La contraseña es incorrecta.';
-        case 'invalid-email':
-          return 'El formato del email no es válido.';
-        case 'user-disabled':
-          return 'Esta cuenta ha sido deshabilitada.';
-        case 'invalid-credential':
-          return 'Credenciales incorrectas (usuario o contraseña).';
-        default:
-          return 'Error: ${e.message}';
+        await _auth.signInWithEmailAndPassword(
+            email: email, password: password);
+        return null;
+      } on FirebaseAuthException catch (e) {
+        switch (e.code) {
+          case 'user-not-found':
+            return 'No existe ninguna cuenta con este email.';
+          case 'wrong-password':
+            return 'La contraseña es incorrecta.';
+          case 'invalid-email':
+            return 'El formato del email no es válido.';
+          case 'user-disabled':
+            return 'Esta cuenta ha sido deshabilitada.';
+          case 'invalid-credential':
+            return 'Credenciales incorrectas (usuario o contraseña).';
+          default:
+            return 'Error: ${e.message}';
+        }
+      } catch (e) {
+        return 'Ocurrió un error inesperado: $e';
       }
-    } catch (e) {
-      return 'Ocurrió un error inesperado: $e';
-    }
+    }(), actionName: 'Inicio de sesión');
   }
 
   // Register with Email, Password and extra fields
@@ -124,16 +149,14 @@ class AuthService with ChangeNotifier {
       UserCredential userCredential;
 
       if (kIsWeb) {
-        // En web, usamos signInWithPopup directamente con Firebase Auth.
-        // Esto es más robusto para entornos de iframe y maneja mejor los orígenes autorizados.
         final GoogleAuthProvider googleProvider = GoogleAuthProvider();
         googleProvider.setCustomParameters({'prompt': 'select_account'});
+        // Remove the restrictive 5s timeout for user-interactive popups
         userCredential = await _auth.signInWithPopup(googleProvider);
       } else {
-        // En móvil/nativo, usamos el flujo normal de google_sign_in
         final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
         if (googleUser == null) {
-          return null; // El usuario canceló
+          return null; // User cancelled
         }
 
         final GoogleSignInAuthentication googleAuth =
@@ -149,20 +172,16 @@ class AuthService with ChangeNotifier {
       User? user = userCredential.user;
 
       if (user != null) {
-        // Check if user exists in Firestore, if not, create profile
         DocumentSnapshot doc =
             await _db.collection('users').doc(user.uid).get();
         if (!doc.exists) {
           final email = user.email ?? '';
-
-          // Check if a profile was pre-created by Admin
           final preProfileQuery = await _db
               .collection('users')
               .where('email', isEqualTo: email)
               .get();
           String role = 'ciudadano';
 
-          // Default Admin for the project owner
           if (email == 'sergioalgmir@gmail.com') {
             role = 'admin';
           }
@@ -194,12 +213,25 @@ class AuthService with ChangeNotifier {
           });
         }
       }
-      return null; // Éxito
+      return null;
     } on FirebaseAuthException catch (e) {
+      // Handle cancellation codes to not show them as errors
+      final code = e.code.toLowerCase();
+      if (code.contains('closed-by-user') ||
+          code.contains('cancelled-popup-request') ||
+          code.contains('user-cancelled')) {
+        return null; // Silent return on cancel
+      }
       return 'Error de Firebase: ${e.message}';
     } catch (e) {
       debugPrint('Error en Google Sign-In: $e');
-      return 'No se pudo iniciar sesión con Google. Revisa la consola para más detalles.';
+      final errStr = e.toString().toLowerCase();
+      if (errStr.contains('popup_closed_by_user') ||
+          errStr.contains('cancelled') ||
+          errStr.contains('cancelado')) {
+        return null;
+      }
+      return 'No se pudo iniciar sesión con Google.';
     }
   }
 
@@ -321,10 +353,15 @@ class AuthService with ChangeNotifier {
 
   // Upload Profile Photo
   Future<String?> uploadProfilePhoto(String uid,
-      {File? imageFile, Uint8List? imageBytes}) async {
+      {File? imageFile,
+      Uint8List? imageBytes,
+      bool updateFirestore = true}) async {
     try {
-      final storageRef =
-          FirebaseStorage.instance.ref().child('user_photos').child('$uid.jpg');
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('user_photos')
+          .child('${uid}_$timestamp.jpg');
 
       if (kIsWeb && imageBytes != null) {
         await storageRef.putData(imageBytes);
@@ -338,9 +375,11 @@ class AuthService with ChangeNotifier {
 
       final downloadUrl = await storageRef.getDownloadURL();
 
-      await _db.collection('users').doc(uid).update({
-        'foto_perfil': downloadUrl,
-      });
+      if (updateFirestore) {
+        await _db.collection('users').doc(uid).update({
+          'foto_perfil': downloadUrl,
+        });
+      }
 
       return downloadUrl;
     } catch (e) {
@@ -354,7 +393,9 @@ class AuthService with ChangeNotifier {
       String? currentPassword, String newPassword) async {
     try {
       final user = _auth.currentUser;
-      if (user == null) return 'No hay usuario autenticado';
+      if (user == null) {
+        return 'No hay usuario autenticado';
+      }
 
       // If user has a password, we MUST re-authenticate
       if (hasPassword) {

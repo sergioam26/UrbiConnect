@@ -49,7 +49,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -62,11 +62,15 @@ class _LoginScreenState extends State<LoginScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.surface,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
+                        color: Colors.black.withValues(
+                            alpha:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? 0.3
+                                    : 0.05),
                         blurRadius: 20,
                         offset: const Offset(0, 10),
                       ),
@@ -93,7 +97,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   'Gestión de incidencias y comunicación con tu ayuntamiento',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(
-                    color: const Color(0xFF64748B),
+                    color: Theme.of(context)
+                        .textTheme
+                        .bodyMedium
+                        ?.color
+                        ?.withValues(alpha: 0.7),
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
@@ -103,20 +111,32 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 32),
                 Row(
                   children: [
-                    const Expanded(child: Divider(color: Color(0xFFE2E8F0))),
+                    Expanded(
+                        child: Divider(
+                            color: Theme.of(context)
+                                .dividerColor
+                                .withValues(alpha: 0.2))),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Text(
                         'O usa tu correo',
                         style: GoogleFonts.inter(
-                          color: const Color(0xFF94A3B8),
+                          color: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.color
+                              ?.withValues(alpha: 0.6),
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1.2,
                         ),
                       ),
                     ),
-                    const Expanded(child: Divider(color: Color(0xFFE2E8F0))),
+                    Expanded(
+                        child: Divider(
+                            color: Theme.of(context)
+                                .dividerColor
+                                .withValues(alpha: 0.2))),
                   ],
                 ),
                 const SizedBox(height: 32),
@@ -174,7 +194,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     Text(
                       '¿Aún no tienes cuenta?',
                       style: GoogleFonts.inter(
-                          color: const Color(0xFF64748B), fontSize: 14),
+                        color: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.color
+                            ?.withValues(alpha: 0.7),
+                        fontSize: 14,
+                      ),
                     ),
                     const SizedBox(width: 4),
                     TextButton(
@@ -201,7 +227,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   icon: const Icon(Icons.help_outline_rounded, size: 18),
                   label: const Text('¿Necesitas ayuda? Soporte técnico'),
                   style: TextButton.styleFrom(
-                    foregroundColor: Colors.grey[600],
+                    foregroundColor: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.color
+                        ?.withValues(alpha: 0.8),
                     textStyle: GoogleFonts.inter(
                         fontSize: 13, fontWeight: FontWeight.w500),
                   ),
