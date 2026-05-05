@@ -51,195 +51,230 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(
-                            alpha:
-                                Theme.of(context).brightness == Brightness.dark
-                                    ? 0.3
-                                    : 0.05),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: Image.asset(
-                    'assets/images/logo.png',
-                    height: 120,
-                    fit: BoxFit.contain,
-                  ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Calculamos si la pantalla es "corta" para reducir espacios
+            final bool isShortScreen = constraints.maxHeight < 700;
+
+            return SingleChildScrollView(
+              physics: isShortScreen
+                  ? const BouncingScrollPhysics()
+                  : const NeverScrollableScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minWidth: constraints.maxWidth,
+                  minHeight: constraints.maxHeight,
                 ),
-                const SizedBox(height: 32),
-                Text(
-                  'UrbiConnect',
-                  style: GoogleFonts.montserrat(
-                    fontSize: 40,
-                    fontWeight: FontWeight.w900,
-                    color: colorScheme.primary,
-                    letterSpacing: -1.5,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Gestión de incidencias y comunicación con tu ayuntamiento',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
-                    color: Theme.of(context)
-                        .textTheme
-                        .bodyMedium
-                        ?.color
-                        ?.withValues(alpha: 0.7),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 48),
-                const GoogleAuthButton(label: 'Entrar con Google'),
-                const SizedBox(height: 32),
-                Row(
-                  children: [
-                    Expanded(
-                        child: Divider(
-                            color: Theme.of(context)
-                                .dividerColor
-                                .withValues(alpha: 0.2))),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        'O usa tu correo',
-                        style: GoogleFonts.inter(
-                          color: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.color
-                              ?.withValues(alpha: 0.6),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.2,
+                child: IntrinsicHeight(
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 500),
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 32.0,
+                            vertical: isShortScreen ? 16.0 : 32.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            if (!isShortScreen) const Spacer(flex: 1),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.surface,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(
+                                        alpha: Theme.of(context).brightness ==
+                                                Brightness.dark
+                                            ? 0.3
+                                            : 0.05),
+                                    blurRadius: 15,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ],
+                              ),
+                              child: Image.asset(
+                                'assets/images/logo.png',
+                                height: isShortScreen ? 60 : 100,
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                            SizedBox(height: isShortScreen ? 16 : 24),
+                            Text(
+                              'UrbiConnect',
+                              style: GoogleFonts.montserrat(
+                                fontSize: isShortScreen ? 28 : 36,
+                                fontWeight: FontWeight.w900,
+                                color: colorScheme.primary,
+                                letterSpacing: -1.0,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Gestión de incidencias y comunicación local',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.inter(
+                                color: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.color
+                                    ?.withValues(alpha: 0.7),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            SizedBox(height: isShortScreen ? 24 : 40),
+                            const GoogleAuthButton(label: 'Entrar con Google'),
+                            SizedBox(height: isShortScreen ? 16 : 24),
+                            Row(
+                              children: [
+                                Expanded(
+                                    child: Divider(
+                                        color: Theme.of(context)
+                                            .dividerColor
+                                            .withValues(alpha: 0.2))),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16),
+                                  child: Text(
+                                    'O usa tu correo',
+                                    style: GoogleFonts.inter(
+                                      color: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.color
+                                          ?.withValues(alpha: 0.6),
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 1.2,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                    child: Divider(
+                                        color: Theme.of(context)
+                                            .dividerColor
+                                            .withValues(alpha: 0.2))),
+                              ],
+                            ),
+                            SizedBox(height: isShortScreen ? 16 : 24),
+                            TextField(
+                              controller: _emailController,
+                              textInputAction: TextInputAction.next,
+                              decoration: const InputDecoration(
+                                labelText: 'Usuario o correo',
+                                prefixIcon: Icon(Icons.alternate_email_rounded,
+                                    size: 20),
+                                contentPadding: EdgeInsets.symmetric(
+                                    vertical: 16, horizontal: 20),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: _passwordController,
+                              obscureText: _obscurePassword,
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (_) => _handleLogin(authService),
+                              decoration: InputDecoration(
+                                labelText: 'Contraseña',
+                                prefixIcon: const Icon(
+                                    Icons.lock_outline_rounded,
+                                    size: 20),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 16, horizontal: 20),
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _obscurePassword
+                                        ? Icons.visibility_off_rounded
+                                        : Icons.visibility_rounded,
+                                    size: 20,
+                                  ),
+                                  onPressed: () => setState(() =>
+                                      _obscurePassword = !_obscurePassword),
+                                ),
+                              ),
+                            ),
+                            SizedBox(height: isShortScreen ? 20 : 24),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 52,
+                              child: ElevatedButton(
+                                onPressed: _isLoading
+                                    ? null
+                                    : () => _handleLogin(authService),
+                                child: _isLoading
+                                    ? const SizedBox(
+                                        height: 24,
+                                        width: 24,
+                                        child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2),
+                                      )
+                                    : const Text('Iniciar sesión'),
+                              ),
+                            ),
+                            SizedBox(height: isShortScreen ? 16 : 24),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  '¿No tienes cuenta?',
+                                  style: GoogleFonts.inter(
+                                    color: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.color
+                                        ?.withValues(alpha: 0.7),
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                          builder: (context) =>
+                                              const RegisterScreen()),
+                                    );
+                                  },
+                                  child: Text(
+                                    'Regístrate',
+                                    style: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w700,
+                                      color: colorScheme.secondary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            TextButton.icon(
+                              onPressed: _showGuestSupportDialog,
+                              icon: const Icon(Icons.help_outline_rounded,
+                                  size: 16),
+                              label: const Text('Soporte técnico'),
+                              style: TextButton.styleFrom(
+                                foregroundColor: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.color
+                                    ?.withValues(alpha: 0.8),
+                                textStyle: GoogleFonts.inter(
+                                    fontSize: 12, fontWeight: FontWeight.w500),
+                                padding: EdgeInsets.zero,
+                              ),
+                            ),
+                            if (!isShortScreen) const Spacer(flex: 2),
+                          ],
                         ),
                       ),
                     ),
-                    Expanded(
-                        child: Divider(
-                            color: Theme.of(context)
-                                .dividerColor
-                                .withValues(alpha: 0.2))),
-                  ],
-                ),
-                const SizedBox(height: 32),
-                TextField(
-                  controller: _emailController,
-                  textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                    labelText: 'Usuario o correo',
-                    prefixIcon: Icon(Icons.alternate_email_rounded, size: 20),
                   ),
                 ),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _handleLogin(authService),
-                  decoration: InputDecoration(
-                    labelText: 'Contraseña',
-                    prefixIcon:
-                        const Icon(Icons.lock_outline_rounded, size: 20),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_off_rounded
-                            : Icons.visibility_rounded,
-                        size: 20,
-                      ),
-                      onPressed: () =>
-                          setState(() => _obscurePassword = !_obscurePassword),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 32),
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton(
-                    onPressed:
-                        _isLoading ? null : () => _handleLogin(authService),
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 24,
-                            width: 24,
-                            child: CircularProgressIndicator(
-                                color: Colors.white, strokeWidth: 2),
-                          )
-                        : const Text('Iniciar sesión'),
-                  ),
-                ),
-                const SizedBox(height: 32),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      '¿Aún no tienes cuenta?',
-                      style: GoogleFonts.inter(
-                        color: Theme.of(context)
-                            .textTheme
-                            .bodyMedium
-                            ?.color
-                            ?.withValues(alpha: 0.7),
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => const RegisterScreen()),
-                        );
-                      },
-                      child: Text(
-                        'Regístrate gratis',
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w700,
-                          color: colorScheme.secondary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                TextButton.icon(
-                  onPressed: _showGuestSupportDialog,
-                  icon: const Icon(Icons.help_outline_rounded, size: 18),
-                  label: const Text('¿Necesitas ayuda? Soporte técnico'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.color
-                        ?.withValues(alpha: 0.8),
-                    textStyle: GoogleFonts.inter(
-                        fontSize: 13, fontWeight: FontWeight.w500),
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
       ),
     );

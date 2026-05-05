@@ -23,7 +23,9 @@ class ChatMessage {
       id: doc.id,
       text: data['texto'] ?? '',
       imageUrl: data['url_imagen'],
-      createdAt: (data['fecha'] as Timestamp).toDate(),
+      createdAt: data['fecha'] != null
+          ? (data['fecha'] as Timestamp).toDate()
+          : DateTime.now(),
       senderId: data['emisor_id'] ?? '',
       incidentId: data['id_incidencia'] ?? '',
     );

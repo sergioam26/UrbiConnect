@@ -95,8 +95,14 @@ class AuthService with ChangeNotifier {
       User? user = result.user;
 
       if (user != null) {
-        // Send verification email
-        await user.sendEmailVerification();
+        // Configuración para que el enlace devuelva al usuario a tu web
+        final actionCodeSettings = ActionCodeSettings(
+          url: 'https://alumno21.fpcantillana.org/',
+          handleCodeInApp: true,
+        );
+
+        // Envío de correo de verificación en español (configurado en el constructor)
+        await user.sendEmailVerification(actionCodeSettings);
 
         // Check if a profile was pre-created by Admin
         final preProfileQuery = await _db
@@ -233,6 +239,27 @@ class AuthService with ChangeNotifier {
       }
       return 'No se pudo iniciar sesión con Google.';
     }
+  }
+
+  // Password Reset
+  Future<String?> sendPasswordResetEmail(String email) async {
+    return _withTimeout(() async {
+      try {
+        await _auth.sendPasswordResetEmail(email: email);
+        return null;
+      } on FirebaseAuthException catch (e) {
+        switch (e.code) {
+          case 'user-not-found':
+            return 'No hay ningún usuario registrado con ese email.';
+          case 'invalid-email':
+            return 'El formato del email no es válido.';
+          default:
+            return e.message;
+        }
+      } catch (e) {
+        return 'Error al enviar el correo de recuperación.';
+      }
+    }(), actionName: 'Recuperar contraseña');
   }
 
   Future<void> signOut() async {

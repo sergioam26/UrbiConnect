@@ -22,24 +22,29 @@ class ProfileScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
-      body: StreamBuilder<UserProfile?>(
-          stream: DatabaseService().getUserProfile(user?.uid ?? ''),
-          builder: (context, snapshot) {
-            final profile = snapshot.data;
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: StreamBuilder<UserProfile?>(
+              stream: DatabaseService().getUserProfile(user?.uid ?? ''),
+              builder: (context, snapshot) {
+                final profile = snapshot.data;
 
-            return SingleChildScrollView(
-              child: Column(
-                children: [
-                  _buildHeader(context, user, profile),
-                  const SizedBox(height: 12),
-                  _buildInfoSection(context, user, profile),
-                  const SizedBox(height: 12),
-                  _buildSettingsSection(context, authService, profile),
-                  const SizedBox(height: 32),
-                ],
-              ),
-            );
-          }),
+                return SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      _buildHeader(context, user, profile),
+                      const SizedBox(height: 12),
+                      _buildInfoSection(context, user, profile),
+                      const SizedBox(height: 12),
+                      _buildSettingsSection(context, authService, profile),
+                      const SizedBox(height: 32),
+                    ],
+                  ),
+                );
+              }),
+        ),
+      ),
     );
   }
 

@@ -209,6 +209,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 }
 
                 return ListView.builder(
+                  reverse: true,
                   padding: const EdgeInsets.all(16),
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
@@ -472,7 +473,7 @@ class ChatBubble extends StatelessWidget {
                       style: TextStyle(
                         color: isMe
                             ? Theme.of(context).colorScheme.onPrimary
-                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                            : Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                 ],

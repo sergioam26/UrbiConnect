@@ -120,7 +120,8 @@ class DatabaseService {
         final profile = UserProfile.fromMap(data, doc.id);
 
         // Auto-upgrade project owner to Admin
-        if (profile.email == 'sergioalgmir@gmail.com' &&
+        final email = profile.email.toLowerCase();
+        if (email == 'sergioalgmir@gmail.com' &&
             profile.role.toLowerCase() != 'admin') {
           _db.collection('users').doc(uid).update({'rol': 'admin'});
         }
@@ -142,7 +143,8 @@ class DatabaseService {
     required String type,
   }) async {
     try {
-      final responsables = await _db
+      // Intentar primero con el campo plural (array)
+      var responsables = await _db
           .collection('users')
           .where('rol', whereIn: [
             'Responsable',
@@ -152,6 +154,20 @@ class DatabaseService {
           ])
           .where('id_categorias', arrayContains: categoryId)
           .get();
+
+      if (responsables.docs.isEmpty) {
+        // Intentar con el campo singular si el plural falla
+        responsables = await _db
+            .collection('users')
+            .where('rol', whereIn: [
+              'Responsable',
+              'Responsable Municipal',
+              'responsable',
+              'responsable municipal'
+            ])
+            .where('id_categoria', isEqualTo: categoryId)
+            .get();
+      }
 
       for (var doc in responsables.docs) {
         await _notificationService.sendNotification(
@@ -192,6 +208,16 @@ class DatabaseService {
 
   // Crear incidencia
   Future<void> createIncident(Incident incident) async {
+    // Validaciones de datos (Checkpoint 3)
+    if (incident.title.trim().isEmpty)
+      throw Exception('El título no puede estar vacío.');
+    if (incident.description.trim().isEmpty)
+      throw Exception('La descripción no puede estar vacía.');
+    if (incident.categoryId.isEmpty)
+      throw Exception('Debes seleccionar una categoría.');
+    if (incident.latitude == 0 || incident.longitude == 0)
+      throw Exception('La ubicación no es válida.');
+
     return _withTimeout(() async {
       final data = incident.toMap();
       data['es_eliminada'] = false;
@@ -276,6 +302,12 @@ class DatabaseService {
 
   // Actualizar incidencia
   Future<void> updateIncident(Incident incident) async {
+    // Validaciones de datos (Checkpoint 3)
+    if (incident.title.trim().isEmpty)
+      throw Exception('El título no puede estar vacío.');
+    if (incident.description.trim().isEmpty)
+      throw Exception('La descripción no puede estar vacía.');
+
     return _withTimeout(() async {
       final updatedIncident = Incident(
         id: incident.id,

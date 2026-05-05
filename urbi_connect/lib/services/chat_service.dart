@@ -16,8 +16,8 @@ class ChatService {
         .map((snapshot) {
       final messages =
           snapshot.docs.map((doc) => ChatMessage.fromFirestore(doc)).toList();
-      // Ordenar por fecha ascendente para el chat
-      messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      // Ordenar por fecha descendente (más recientes primero) para usar reverse: true
+      messages.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return messages;
     });
   }
@@ -50,15 +50,34 @@ class ChatService {
 
         if (senderId == citizenId) {
           // El ciudadano envió el mensaje, notificar al responsable
-          final responsables = await _db
+          // Buscamos responsables que tengan esta categoría (probamos ambos campos por compatibilidad)
+          var responsables = await _db
               .collection('users')
-              .where('rol', whereIn: ['Responsable', 'Responsable Municipal'])
+              .where('rol', whereIn: [
+                'responsable',
+                'responsable municipal',
+                'Responsable',
+                'Responsable Municipal'
+              ])
               .where('id_categorias', arrayContains: categoryId)
               .get();
 
+          if (responsables.docs.isEmpty) {
+            // Intentar con el campo singular si el plural falla
+            responsables = await _db
+                .collection('users')
+                .where('rol', whereIn: [
+                  'responsable',
+                  'responsable municipal',
+                  'Responsable',
+                  'Responsable Municipal'
+                ])
+                .where('id_categoria', isEqualTo: categoryId)
+                .get();
+          }
+
           if (responsables.docs.isNotEmpty) {
-            targetUserId = responsables
-                .docs.first.id; // Notificamos al primero por simplicidad
+            targetUserId = responsables.docs.first.id;
           }
         } else {
           // El responsable envió el mensaje, notificar al ciudadano
