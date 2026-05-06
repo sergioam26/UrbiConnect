@@ -31,6 +31,9 @@ dependencies:
   # Hardware y Mapas
   image_picker: ^1.1.2
   geolocator: ^12.0.0
+  geocoding: ^3.0.0
+  flutter_typeahead: ^5.2.0
+  http: ^1.2.1
   google_maps_flutter: ^2.7.0
   google_sign_in: ^6.2.1
 

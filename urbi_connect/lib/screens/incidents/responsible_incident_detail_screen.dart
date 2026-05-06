@@ -235,6 +235,8 @@ class _ResponsibleIncidentDetailScreenState
             const Text('Ubicación:',
                 style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
+            if (widget.incident.address != null)
+              _buildDetailRow('Dirección:', widget.incident.address!),
             if (widget.incident.latitude != 0 && widget.incident.longitude != 0)
               Container(
                 key: ValueKey('map_cont_resp_${widget.incident.id}'),

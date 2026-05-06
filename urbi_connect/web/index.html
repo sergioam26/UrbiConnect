@@ -33,44 +33,55 @@
       sizes="16x16"
       href="assets/images/favicon.png"
     />
-    <link
-      rel="shortcut icon"
-      href="assets/images/favicon.png"
-      type="image/x-icon"
-    />
+    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
 
     <title>UrbiConnect</title>
 
     <!-- Script para redondear el favicon dinámicamente -->
     <script>
       window.addEventListener("load", () => {
+        // Solo intentamos redondear si estamos en un navegador que lo soporte y no hay errores de carga
         const iconLinks = document.querySelectorAll("link[rel*='icon']");
         const img = new Image();
+
+        // Intentamos cargar la imagen desdel el path relativo para maximizar compatibilidad en Plesk/Apache
         img.src = "assets/images/favicon.png";
-        img.crossOrigin = "anonymous";
 
         img.onload = () => {
-          const canvas = document.createElement("canvas");
-          const size = 128; // Resolución interna para el favicon
-          canvas.width = size;
-          canvas.height = size;
-          const ctx = canvas.getContext("2d");
+          try {
+            const canvas = document.createElement("canvas");
+            const size = 128;
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext("2d");
 
-          // Dibujar círculo
-          ctx.beginPath();
-          ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
-          ctx.closePath();
-          ctx.clip();
+            ctx.beginPath();
+            ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+            ctx.closePath();
+            ctx.clip();
 
-          // Dibujar la imagen dentro del círculo
-          ctx.drawImage(img, 0, 0, size, size);
+            ctx.drawImage(img, 0, 0, size, size);
 
-          const roundedDataUrl = canvas.toDataURL("image/png");
+            const roundedDataUrl = canvas.toDataURL("image/png");
 
-          // Actualizar todas las etiquetas de icono existentes
-          iconLinks.forEach((link) => {
-            link.href = roundedDataUrl;
-          });
+            iconLinks.forEach((link) => {
+              // No sobreescribimos el shortcut icon si es .ico
+              if (!link.href.endsWith(".ico")) {
+                link.href = roundedDataUrl;
+              }
+            });
+          } catch (e) {
+            console.warn(
+              "No se pudo redondear el favicon (posiblemente CORS en Plesk):",
+              e,
+            );
+          }
+        };
+
+        img.onerror = () => {
+          console.warn(
+            "No se pudo cargar favicon.png para el redondeo dinámico.",
+          );
         };
       });
     </script>

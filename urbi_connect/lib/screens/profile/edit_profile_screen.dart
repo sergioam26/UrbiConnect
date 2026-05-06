@@ -327,7 +327,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Editar Perfil'),
+          title: const Text('Editar perfil'),
         ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(24),

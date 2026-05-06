@@ -68,11 +68,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: IntrinsicHeight(
                   child: Center(
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 500),
+                      constraints: const BoxConstraints(maxWidth: 420),
                       child: Padding(
                         padding: EdgeInsets.symmetric(
-                            horizontal: 32.0,
-                            vertical: isShortScreen ? 16.0 : 32.0),
+                            horizontal: 24.0,
+                            vertical: isShortScreen ? 12.0 : 24.0),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.center,
@@ -97,7 +97,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               child: Image.asset(
                                 'assets/images/logo.png',
-                                height: isShortScreen ? 60 : 100,
+                                height: isShortScreen ? 80 : 120,
                                 fit: BoxFit.contain,
                               ),
                             ),
@@ -105,7 +105,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             Text(
                               'UrbiConnect',
                               style: GoogleFonts.montserrat(
-                                fontSize: isShortScreen ? 28 : 36,
+                                fontSize: isShortScreen ? 32 : 40,
                                 fontWeight: FontWeight.w900,
                                 color: colorScheme.primary,
                                 letterSpacing: -1.0,
@@ -121,7 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     .bodyMedium
                                     ?.color
                                     ?.withValues(alpha: 0.7),
-                                fontSize: 13,
+                                fontSize: 14,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),

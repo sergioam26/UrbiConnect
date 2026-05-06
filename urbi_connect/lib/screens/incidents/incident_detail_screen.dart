@@ -212,6 +212,24 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
+                  if (widget.incident.address != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        children: [
+                          Icon(Icons.location_on,
+                              color: Theme.of(context).primaryColor, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              widget.incident.address!,
+                              style: const TextStyle(
+                                  fontSize: 15, fontWeight: FontWeight.w500),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   if (widget.incident.latitude != 0 &&
                       widget.incident.longitude != 0)
                     Container(

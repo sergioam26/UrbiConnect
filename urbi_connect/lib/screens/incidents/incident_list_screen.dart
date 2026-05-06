@@ -1,14 +1,15 @@
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 import 'package:urbi_connect/models/incident.dart';
-import 'package:urbi_connect/models/user_profile.dart';
+import 'package:urbi_connect/services/database_service.dart';
 import 'package:urbi_connect/screens/incidents/incident_detail_screen.dart';
 import 'package:urbi_connect/screens/incidents/responsible_incident_detail_screen.dart';
-import 'package:urbi_connect/services/database_service.dart';
+import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:urbi_connect/models/user_profile.dart';
 
 class IncidentListScreen extends StatefulWidget {
   const IncidentListScreen({super.key});
@@ -836,6 +837,29 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
                           height: 1.3,
                         ),
                       ),
+                      if (incident.address != null) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.location_on_outlined,
+                                size: 12,
+                                color: Theme.of(context).primaryColor),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                incident.address!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  color: Theme.of(context).primaryColor,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 8),
                       Row(
                         children: [

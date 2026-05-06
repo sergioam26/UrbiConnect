@@ -60,8 +60,10 @@ class NotificationListScreen extends StatelessWidget {
         final profile = UserProfile.fromMap(profileDoc.data()!, user.uid);
 
         if (context.mounted) {
-          if (profile.role == 'Responsable' ||
-              profile.role == 'Responsable Municipal') {
+          final role = profile.role.toLowerCase();
+          if (role == 'responsable' ||
+              role == 'responsable municipal' ||
+              role == 'admin') {
             Navigator.push(
               context,
               MaterialPageRoute(

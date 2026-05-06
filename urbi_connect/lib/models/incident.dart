@@ -8,6 +8,7 @@ class Incident {
   final List<String>? imageUrls;
   final double latitude;
   final double longitude;
+  final String? address;
   final DateTime createdAt;
   final DateTime? updatedAt;
   final String status; // 'pendiente', 'en proceso', 'resuelta'
@@ -23,6 +24,7 @@ class Incident {
     this.imageUrls,
     required this.latitude,
     required this.longitude,
+    this.address,
     required this.createdAt,
     this.updatedAt,
     required this.status,
@@ -42,6 +44,7 @@ class Incident {
       imageUrls: urlsData != null ? List<String>.from(urlsData) : null,
       latitude: (data['latitud'] ?? 0.0).toDouble(),
       longitude: (data['longitud'] ?? 0.0).toDouble(),
+      address: data['direccion'],
       createdAt: data['fecha_creacion'] != null
           ? (data['fecha_creacion'] as Timestamp).toDate()
           : DateTime.now(),
@@ -65,6 +68,7 @@ class Incident {
       'fotos_urls': imageUrls,
       'latitud': latitude,
       'longitud': longitude,
+      'direccion': address,
       'fecha_creacion': createdAt,
       'fecha_edicion': updatedAt,
       'estado': status,

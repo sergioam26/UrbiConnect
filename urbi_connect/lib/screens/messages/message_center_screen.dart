@@ -711,7 +711,6 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
         child: Row(
           children: ['Todos', 'Ciudadanos', 'Responsables', 'Individuales']
               .map((filter) {
-            final isSelected = _broadcastFilter.value == filter;
             return Padding(
               padding: const EdgeInsets.only(right: 8),
               child: ValueListenableBuilder<String>(

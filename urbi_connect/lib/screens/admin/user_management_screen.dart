@@ -395,7 +395,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
                       try {
                         final roles = <String>[];
-                        if (targetCitizens) roles.add('Ciudadano');
+                        if (targetCitizens) {
+                          roles.add('Ciudadano');
+                        }
                         if (targetResponsibles) {
                           roles.add('Responsable');
                           roles.add('Responsable Municipal');
@@ -563,10 +565,15 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
   String _formatRole(String role) {
     final r = role.toLowerCase();
-    if (r == 'admin') return 'Admin';
-    if (r == 'ciudadano') return 'Ciudadano';
-    if (r == 'responsable' || r == 'responsable municipal')
+    if (r == 'admin') {
+      return 'Admin';
+    }
+    if (r == 'ciudadano') {
+      return 'Ciudadano';
+    }
+    if (r == 'responsable' || r == 'responsable municipal') {
       return 'Responsable municipal';
+    }
     return r;
   }
 
