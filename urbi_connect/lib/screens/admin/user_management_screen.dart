@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -78,8 +79,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           ),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream:
-                  FirebaseFirestore.instance.collection('users').snapshots(),
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .where('email_verificado', isEqualTo: true)
+                  .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return const Center(child: Text('Error al cargar usuarios'));
@@ -491,7 +494,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: () => _showRoleAssignment(context, user),
+            onTap: user.uid == FirebaseAuth.instance.currentUser?.uid
+                ? null
+                : () => _showRoleAssignment(context, user),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
@@ -600,6 +605,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   }
 
   Widget _buildActionButtons(BuildContext context, UserProfile user) {
+    // No permitir que un administrador se realice acciones a sí mismo
+    if (user.uid == FirebaseAuth.instance.currentUser?.uid) {
+      return const SizedBox.shrink();
+    }
+
     return Column(
       children: [
         Row(
@@ -1030,12 +1040,22 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               child: const Text('Cancelar')),
           TextButton(
             onPressed: () async {
-              await FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(user.uid)
-                  .delete();
-              if (context.mounted) {
-                Navigator.pop(context);
+              try {
+                await DatabaseService().deleteUserFully(user.uid, user.email);
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: Text(
+                            'Usuario ${user.name} eliminado y bloqueado permanentemente.')),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error al eliminar usuario: $e')),
+                  );
+                }
               }
             },
             child: const Text('Eliminar', style: TextStyle(color: Colors.red)),

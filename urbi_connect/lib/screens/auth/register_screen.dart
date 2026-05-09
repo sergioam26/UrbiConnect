@@ -18,9 +18,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+
+  final _nameFocus = FocusNode();
+  final _surnamesFocus = FocusNode();
+  final _usernameFocus = FocusNode();
+  final _emailFocus = FocusNode();
+  final _passwordFocus = FocusNode();
+  final _confirmPasswordFocus = FocusNode();
+
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _surnamesController.dispose();
+    _usernameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    _nameFocus.dispose();
+    _surnamesFocus.dispose();
+    _usernameFocus.dispose();
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
+    _confirmPasswordFocus.dispose();
+    super.dispose();
+  }
 
   Future<void> _handleRegister(AuthService authService) async {
     if (_formKey.currentState!.validate()) {
@@ -40,7 +65,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         return;
       }
 
-      final user = await authService.register(
+      final error = await authService.register(
         email: _emailController.text,
         password: _passwordController.text,
         name: _nameController.text,
@@ -49,7 +74,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
       if (!mounted) return;
       setState(() => _isLoading = false);
-      if (user != null) {
+
+      if (error == null) {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
@@ -66,6 +92,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
             ],
           ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error)),
         );
       }
     }
@@ -147,7 +177,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 children: [
                                   TextFormField(
                                     controller: _nameController,
+                                    focusNode: _nameFocus,
                                     textInputAction: TextInputAction.next,
+                                    onFieldSubmitted: (_) =>
+                                        FocusScope.of(context)
+                                            .requestFocus(_surnamesFocus),
                                     decoration: InputDecoration(
                                       labelText: 'Nombre',
                                       prefixIcon:
@@ -169,7 +203,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   SizedBox(height: isShortScreen ? 8 : 12),
                                   TextFormField(
                                     controller: _surnamesController,
+                                    focusNode: _surnamesFocus,
                                     textInputAction: TextInputAction.next,
+                                    onFieldSubmitted: (_) =>
+                                        FocusScope.of(context)
+                                            .requestFocus(_usernameFocus),
                                     decoration: InputDecoration(
                                       labelText: 'Apellidos',
                                       prefixIcon:
@@ -191,7 +229,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   SizedBox(height: isShortScreen ? 8 : 12),
                                   TextFormField(
                                     controller: _usernameController,
+                                    focusNode: _usernameFocus,
                                     textInputAction: TextInputAction.next,
+                                    onFieldSubmitted: (_) =>
+                                        FocusScope.of(context)
+                                            .requestFocus(_emailFocus),
                                     decoration: InputDecoration(
                                       labelText: 'Nombre de usuario',
                                       prefixIcon:
@@ -213,7 +255,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   SizedBox(height: isShortScreen ? 8 : 12),
                                   TextFormField(
                                     controller: _emailController,
+                                    focusNode: _emailFocus,
                                     textInputAction: TextInputAction.next,
+                                    onFieldSubmitted: (_) =>
+                                        FocusScope.of(context)
+                                            .requestFocus(_passwordFocus),
                                     decoration: InputDecoration(
                                       labelText: 'Email',
                                       prefixIcon:
@@ -238,8 +284,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   SizedBox(height: isShortScreen ? 8 : 12),
                                   TextFormField(
                                     controller: _passwordController,
+                                    focusNode: _passwordFocus,
                                     obscureText: _obscurePassword,
                                     textInputAction: TextInputAction.next,
+                                    onFieldSubmitted: (_) =>
+                                        FocusScope.of(context).requestFocus(
+                                            _confirmPasswordFocus),
                                     decoration: InputDecoration(
                                       labelText: 'Contraseña',
                                       prefixIcon:
@@ -280,6 +330,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   SizedBox(height: isShortScreen ? 8 : 12),
                                   TextFormField(
                                     controller: _confirmPasswordController,
+                                    focusNode: _confirmPasswordFocus,
                                     obscureText: _obscureConfirmPassword,
                                     textInputAction: TextInputAction.done,
                                     onFieldSubmitted: (_) =>

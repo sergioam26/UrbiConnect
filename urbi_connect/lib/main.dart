@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -265,8 +266,37 @@ class AuthWrapper extends StatelessWidget {
                       const SizedBox(height: 32),
                       ElevatedButton(
                         onPressed: () async {
-                          await user.reload();
-                          // El StreamBuilder se reconstruirá solo si el estado cambia
+                          try {
+                            await user.reload();
+                            final updatedUser =
+                                FirebaseAuth.instance.currentUser;
+                            if (updatedUser != null &&
+                                updatedUser.emailVerified) {
+                              // Update Firestore flag
+                              await FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(updatedUser.uid)
+                                  .update({'email_verificado': true});
+                            } else if (updatedUser != null &&
+                                !updatedUser.emailVerified) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                        'El correo aún no ha sido verificado. Por favor, revisa tu bandeja de entrada o spam y vuelve a intentarlo.'),
+                                    backgroundColor: Colors.orange,
+                                  ),
+                                );
+                              }
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content: Text('Error al verificar: $e')),
+                              );
+                            }
+                          }
                         },
                         child: const Text('Ya lo he verificado'),
                       ),

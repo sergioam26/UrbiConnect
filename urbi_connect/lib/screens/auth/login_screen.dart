@@ -16,8 +16,19 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _emailFocus = FocusNode();
+  final _passwordFocus = FocusNode();
   bool _obscurePassword = true;
   bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
+    super.dispose();
+  }
 
   Future<void> _handleLogin(AuthService authService) async {
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
@@ -162,7 +173,10 @@ class _LoginScreenState extends State<LoginScreen> {
                             SizedBox(height: isShortScreen ? 16 : 24),
                             TextField(
                               controller: _emailController,
+                              focusNode: _emailFocus,
                               textInputAction: TextInputAction.next,
+                              onSubmitted: (_) => FocusScope.of(context)
+                                  .requestFocus(_passwordFocus),
                               decoration: const InputDecoration(
                                 labelText: 'Usuario o correo',
                                 prefixIcon: Icon(Icons.alternate_email_rounded,
@@ -174,6 +188,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             const SizedBox(height: 12),
                             TextField(
                               controller: _passwordController,
+                              focusNode: _passwordFocus,
                               obscureText: _obscurePassword,
                               textInputAction: TextInputAction.done,
                               onSubmitted: (_) => _handleLogin(authService),

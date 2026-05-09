@@ -33,6 +33,12 @@ class _GoogleAuthButtonState extends State<GoogleAuthButton> {
                     messenger.showSnackBar(
                       SnackBar(content: Text(error)),
                     );
+                  } else {
+                    // Si el login es exitoso, volvemos a la pantalla principal
+                    // Esto es necesario si estamos en RegisterScreen (que fue pusheada)
+                    if (Navigator.of(context).canPop()) {
+                      Navigator.of(context).pop();
+                    }
                   }
                 } finally {
                   if (mounted) {

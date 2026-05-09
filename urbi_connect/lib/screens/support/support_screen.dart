@@ -211,8 +211,9 @@ class _SupportScreenState extends State<SupportScreen> {
                           );
                         }
                       } finally {
-                        if (context.mounted)
+                        if (context.mounted) {
                           setDialogState(() => isSaving = false);
+                        }
                       }
                     },
               style: ElevatedButton.styleFrom(
@@ -357,6 +358,7 @@ class _SupportScreenState extends State<SupportScreen> {
       String subtitlePrefix,
       [String? role,
       bool isGuest = false]) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
@@ -372,11 +374,16 @@ class _SupportScreenState extends State<SupportScreen> {
               const SizedBox(height: 4),
             ],
             if (widget.isAdmin && isGuest) ...[
-              _buildBadge('Invitado', Colors.orange[800]!),
+              _buildBadge(
+                  'Invitado',
+                  isDark
+                      ? const Color(0xFFFED7AA)
+                      : const Color(0xFF9A3412)), // Orange 200 vs Orange 800
               const SizedBox(height: 4),
             ],
             // Usamos un badge para el estado en lugar del punto
-            _buildBadge(data['estado'], _getStatusColor(data['estado'])),
+            _buildBadge(
+                data['estado'], _getStatusColor(data['estado'], isDark)),
           ],
         ),
         onTap: () {
@@ -482,14 +489,20 @@ class _SupportScreenState extends State<SupportScreen> {
     );
   }
 
-  Color _getStatusColor(String status) {
+  Color _getStatusColor(String status, bool isDark) {
     switch (status) {
       case 'Abierto':
-        return Colors.green;
+        return isDark
+            ? const Color(0xFF86EFAC)
+            : const Color(0xFF15803D); // Green 300 vs Green 700
       case 'Cerrado':
-        return Colors.red;
+        return isDark
+            ? const Color(0xFFFCA5A5)
+            : const Color(0xFFB91C1C); // Red 300 vs Red 700
       default:
-        return Colors.grey;
+        return isDark
+            ? const Color(0xFFCBD5E1)
+            : const Color(0xFF475569); // Slate 300 vs Slate 600
     }
   }
 
@@ -525,33 +538,49 @@ class _SupportScreenState extends State<SupportScreen> {
 
   Widget _buildRoleBadge(String role) {
     final String r = role.toLowerCase();
-    Color color = const Color(0xFF2563EB); // Royal Blue
-    String text = 'Ciudadano';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    Color color;
+    String text;
 
     if (r.contains('responsable')) {
-      color = const Color(0xFF0F172A); // Slate 900
       text = 'Responsable';
+      // Blue 200 for dark mode is much more visible
+      color = isDark ? const Color(0xFFBFDBFE) : const Color(0xFF1E3A8A);
     } else if (r.contains('admin')) {
-      color = const Color(0xFFEF4444); // Red 500
       text = 'Admin';
+      // Red 200 for dark mode
+      color = isDark ? const Color(0xFFFECACA) : const Color(0xFF991B1B);
+    } else {
+      text = 'Ciudadano';
+      // Teal 200 for dark mode
+      color = isDark ? const Color(0xFF99F6E4) : const Color(0xFF0F766E);
     }
 
     return _buildBadge(text, color);
   }
 
   Widget _buildBadge(String text, Color color) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: 90,
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color.withValues(alpha: isDark ? 0.25 : 0.1),
         borderRadius: BorderRadius.circular(6),
+        border: isDark
+            ? Border.all(color: color.withValues(alpha: 0.4), width: 0.5)
+            : null,
       ),
       child: Center(
         child: Text(
           text,
-          style:
-              TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: color,
+            fontSize: 9,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.2,
+          ),
         ),
       ),
     );

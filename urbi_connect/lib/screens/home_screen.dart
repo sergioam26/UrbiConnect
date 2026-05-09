@@ -31,6 +31,12 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _initNotifications();
+    _syncEmail();
+  }
+
+  Future<void> _syncEmail() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    await authService.syncEmailWithFirestore();
   }
 
   Future<void> _initNotifications() async {
@@ -79,60 +85,52 @@ class _HomeScreenState extends State<HomeScreen> {
 
         return Scaffold(
           appBar: AppBar(
-            automaticallyImplyLeading: false, // Quitar botón de atrás si existe
-            title: Padding(
-              padding: const EdgeInsets.only(left: 8.0),
-              child: Text(
-                'UrbiConnect',
-                style: GoogleFonts.montserrat(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 22,
-                  letterSpacing: -0.5,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+            automaticallyImplyLeading: false,
+            centerTitle: true,
+            title: Text(
+              'UrbiConnect',
+              style: GoogleFonts.montserrat(
+                fontWeight: FontWeight.w800,
+                fontSize: 22,
+                letterSpacing: -0.5,
+                color: Theme.of(context).colorScheme.primary,
               ),
             ),
             actions: [
-              Container(
-                margin: const EdgeInsets.only(right: 16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withValues(alpha: 0.05),
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.logout_rounded, size: 20),
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24)),
-                        title: const Text('Cerrar sesión'),
-                        content: const Text(
-                            '¿Estás seguro de que deseas salir de UrbiConnect?'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('Cancelar'),
+              IconButton(
+                icon: const Icon(Icons.logout_rounded, size: 20),
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24)),
+                      title: const Text('Cerrar sesión'),
+                      content: const Text(
+                          '¿Estás seguro de que deseas salir de UrbiConnect?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Cancelar'),
+                        ),
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            Provider.of<AuthService>(context, listen: false)
+                                .signOut();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red[600],
+                            foregroundColor: Colors.white,
                           ),
-                          ElevatedButton(
-                            onPressed: () {
-                              Navigator.pop(context);
-                              Provider.of<AuthService>(context, listen: false)
-                                  .signOut();
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red[600],
-                              foregroundColor: Colors.white,
-                            ),
-                            child: const Text('Salir'),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              )
+                          child: const Text('Salir'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(width: 8),
             ],
           ),
           body: pages[_selectedIndex],
@@ -199,12 +197,27 @@ class _HomeScreenState extends State<HomeScreen> {
                       return const Icon(Icons.notifications_none_rounded);
                     },
                   ),
-                  selectedIcon: const Icon(Icons.notifications_rounded),
+                  selectedIcon: StreamBuilder<int>(
+                    stream: NotificationService().getUnreadCount(user.uid),
+                    builder: (context, snapshot) {
+                      final count = snapshot.data ?? 0;
+                      if (count > 0) {
+                        return Badge.count(
+                          count: count,
+                          child: Icon(Icons.notifications_rounded,
+                              color: Theme.of(context).colorScheme.primary),
+                        );
+                      }
+                      return Icon(Icons.notifications_rounded,
+                          color: Theme.of(context).colorScheme.primary);
+                    },
+                  ),
                   label: 'Buzón',
                 ),
-                const NavigationDestination(
-                  icon: Icon(Icons.person_outline_rounded),
-                  selectedIcon: Icon(Icons.person_rounded),
+                NavigationDestination(
+                  icon: const Icon(Icons.person_outline_rounded),
+                  selectedIcon: Icon(Icons.person_rounded,
+                      color: Theme.of(context).colorScheme.primary),
                   label: 'Perfil',
                 ),
               ],

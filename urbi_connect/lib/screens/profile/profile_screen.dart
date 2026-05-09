@@ -12,8 +12,29 @@ import 'package:urbi_connect/services/auth_service.dart';
 import 'package:urbi_connect/services/database_service.dart';
 import 'package:urbi_connect/services/theme_service.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _syncEmail();
+  }
+
+  Future<void> _syncEmail() async {
+    // Sync email when entering profile screen
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        Provider.of<AuthService>(context, listen: false)
+            .syncEmailWithFirestore();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,29 +43,28 @@ class ProfileScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 800),
-          child: StreamBuilder<UserProfile?>(
-              stream: DatabaseService().getUserProfile(user?.uid ?? ''),
-              builder: (context, snapshot) {
-                final profile = snapshot.data;
+      body: StreamBuilder<UserProfile?>(
+          stream: DatabaseService().getUserProfile(user?.uid ?? ''),
+          builder: (context, snapshot) {
+            final profile = snapshot.data;
 
-                return SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      _buildHeader(context, user, profile),
-                      const SizedBox(height: 12),
-                      _buildInfoSection(context, user, profile),
-                      const SizedBox(height: 12),
-                      _buildSettingsSection(context, authService, profile),
-                      const SizedBox(height: 32),
-                    ],
-                  ),
-                );
-              }),
-        ),
-      ),
+            return RefreshIndicator(
+              onRefresh: () => authService.syncEmailWithFirestore(),
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  children: [
+                    _buildHeader(context, user, profile),
+                    const SizedBox(height: 12),
+                    _buildInfoSection(context, user, profile),
+                    const SizedBox(height: 12),
+                    _buildSettingsSection(context, authService, profile),
+                    const SizedBox(height: 32),
+                  ],
+                ),
+              ),
+            );
+          }),
     );
   }
 

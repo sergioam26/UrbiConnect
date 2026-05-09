@@ -67,7 +67,7 @@ class SupportService {
           'descripcion': description,
           'url_imagen': imageUrl,
           'fecha': FieldValue.serverTimestamp(),
-          'estado': 'Abierto',
+          'estado': 'Cerrado',
           'iniciado_por_admin': false,
           'admin_leido': false,
           'not_admin_leido': true,
@@ -252,28 +252,54 @@ class SupportService {
   // Actualizar estado de ticket
   Future<void> updateTicketStatus(String ticketId, String status) async {
     try {
+      final docRef = _db.collection('Soporte').doc(ticketId);
+      final ticketDoc = await docRef.get();
+
+      if (!ticketDoc.exists) return;
+
+      final String currentStatus = ticketDoc.get('estado') ?? 'Cerrado';
+      final String userId = ticketDoc.get('id_usuario') ?? '';
+
       final Map<String, dynamic> updates = {'estado': status};
       if (status == 'Cerrado') {
         updates['fecha_cierre'] = FieldValue.serverTimestamp();
       }
 
-      await _db.collection('Soporte').doc(ticketId).update(updates);
+      await docRef.update(updates);
 
-      // Notificar al usuario del cambio de estado
-      try {
-        final ticket = await _db.collection('Soporte').doc(ticketId).get();
-        final userId = ticket.get('id_usuario');
-
-        await _notificationService.sendNotification(
-          userId: userId,
-          title: 'Actualización de soporte',
-          body:
-              'El estado de tu ticket #${ticketId.substring(0, 5).toUpperCase()} ha cambiado a: $status',
-          referenceId: ticketId,
-          type: 'soporte',
-        );
-      } catch (e) {
-        debugPrint('Error notificando cambio de estado: $e');
+      // Notificar al usuario del cambio de estado SOLO si se cierra después de haber estado abierto
+      if (status == 'Cerrado' &&
+          currentStatus == 'Abierto' &&
+          userId.isNotEmpty) {
+        try {
+          await _notificationService.sendNotification(
+            userId: userId,
+            title: 'Actualización de soporte',
+            body:
+                'Tu consulta #${ticketId.substring(0, 5).toUpperCase()} ha sido finalizada por administración.',
+            referenceId: ticketId,
+            type: 'soporte',
+          );
+        } catch (e) {
+          debugPrint('Error notificando cierre de ticket: $e');
+        }
+      }
+      // Si se abre un ticket que estaba cerrado, también es una actualización relevante
+      else if (status == 'Abierto' &&
+          currentStatus == 'Cerrado' &&
+          userId.isNotEmpty) {
+        try {
+          await _notificationService.sendNotification(
+            userId: userId,
+            title: 'Soporte activado',
+            body:
+                'Un administrador ha abierto tu ticket #${ticketId.substring(0, 5).toUpperCase()} para darte respuesta.',
+            referenceId: ticketId,
+            type: 'chat_soporte',
+          );
+        } catch (e) {
+          debugPrint('Error notificando apertura de ticket: $e');
+        }
       }
     } catch (e) {
       _handleFirestoreError(e, OperationType.update, 'Soporte/$ticketId');

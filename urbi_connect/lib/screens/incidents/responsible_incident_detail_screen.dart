@@ -1,10 +1,12 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:urbi_connect/models/incident.dart';
+import 'package:urbi_connect/services/database_service.dart';
+import 'package:urbi_connect/screens/incidents/chat_screen.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
-import 'package:urbi_connect/models/incident.dart';
-import 'package:urbi_connect/screens/incidents/chat_screen.dart';
-import 'package:urbi_connect/services/database_service.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class ResponsibleIncidentDetailScreen extends StatefulWidget {
   final Incident incident;
@@ -149,25 +151,77 @@ class _ResponsibleIncidentDetailScreenState
                 : Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey),
+                      border: Border.all(
+                          color: _currentStatus == 'eliminada'
+                              ? Colors.red.withValues(alpha: 0.5)
+                              : Colors.grey),
                       borderRadius: BorderRadius.circular(8),
+                      color: _currentStatus == 'eliminada'
+                          ? Colors.red.withValues(alpha: 0.05)
+                          : null,
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
                         value: _currentStatus,
                         isExpanded: true,
-                        items: ['pendiente', 'en proceso', 'resuelta']
-                            .map((String value) {
+                        disabledHint: _currentStatus == 'eliminada'
+                            ? const Text('Incidencia eliminada',
+                                style: TextStyle(color: Colors.red))
+                            : null,
+                        items: [
+                          'pendiente',
+                          'en proceso',
+                          'resuelta',
+                          if (_currentStatus == 'eliminada') 'eliminada'
+                        ].map((String value) {
                           return DropdownMenuItem<String>(
                             value: value,
+                            enabled: value != 'eliminada',
                             child: Text(
-                                value[0].toUpperCase() + value.substring(1)),
+                              value[0].toUpperCase() + value.substring(1),
+                              style: TextStyle(
+                                color: value == 'eliminada' ? Colors.red : null,
+                                fontWeight: value == 'eliminada'
+                                    ? FontWeight.bold
+                                    : null,
+                              ),
+                            ),
                           );
                         }).toList(),
-                        onChanged: _updateStatus,
+                        onChanged: _currentStatus == 'eliminada'
+                            ? null
+                            : _updateStatus,
                       ),
                     ),
                   ),
+            if (_currentStatus == 'eliminada')
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border:
+                        Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.red),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Esta incidencia ha sido eliminada por el ciudadano y no se puede modificar su estado.',
+                          style: TextStyle(
+                              color: Colors.red,
+                              fontStyle: FontStyle.italic,
+                              fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             const SizedBox(height: 24),
             const Divider(),
             const SizedBox(height: 16),

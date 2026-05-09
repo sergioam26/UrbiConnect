@@ -17,7 +17,7 @@ class AuthService with ChangeNotifier {
     _auth.setLanguageCode('es');
   }
 
-  Stream<User?> get user => _auth.authStateChanges();
+  Stream<User?> get user => _auth.userChanges();
 
   // Helper para manejar timeouts y errores de red
   Future<T> _withTimeout<T>(Future<T> operation, {String? actionName}) async {
@@ -52,9 +52,16 @@ class AuthService with ChangeNotifier {
               .get();
 
           if (userQuery.docs.isEmpty) {
+            // Check if it might be a deleted account by checking his username?
+            // Better to just say it doesn't exist if not in users.
             return 'El nombre de usuario no existe.';
           }
           email = userQuery.docs.first.get('email');
+        }
+
+        // Check if blocked/deleted
+        if (await isEmailBlocked(email)) {
+          return 'Esta cuenta ha sido eliminada y el acceso está bloqueado.';
         }
 
         await _auth.signInWithEmailAndPassword(
@@ -82,7 +89,7 @@ class AuthService with ChangeNotifier {
   }
 
   // Register with Email, Password and extra fields
-  Future<User?> register({
+  Future<String?> register({
     required String email,
     required String password,
     required String name,
@@ -90,6 +97,11 @@ class AuthService with ChangeNotifier {
     required String username,
   }) async {
     try {
+      // Check if email is blocked/deleted
+      if (await isEmailBlocked(email)) {
+        return 'Esta cuenta ha sido eliminada previamente y no se permite un nuevo registro con este correo.';
+      }
+
       UserCredential result = await _auth.createUserWithEmailAndPassword(
           email: email, password: password);
       User? user = result.user;
@@ -140,12 +152,26 @@ class AuthService with ChangeNotifier {
           'rol': role,
           'id_categoria': category,
           'fecha_registro': FieldValue.serverTimestamp(),
+          'email_verificado': false, // New flag for verification tracking
         });
       }
-      return user;
+      return null; // Éxito
+    } on FirebaseAuthException catch (e) {
+      switch (e.code) {
+        case 'email-already-in-use':
+          return 'Este correo electrónico ya está registrado. Intenta iniciar sesión.';
+        case 'invalid-email':
+          return 'El formato del email no es válido.';
+        case 'weak-password':
+          return 'La contraseña es muy débil. Usa al menos 6 caracteres.';
+        case 'operation-not-allowed':
+          return 'El registro con email/password no está habilitado.';
+        default:
+          return 'Error en Firebase: ${e.message}';
+      }
     } catch (e) {
       debugPrint(e.toString());
-      return null;
+      return 'Ocurrió un error inesperado al registrarse.';
     }
   }
 
@@ -178,6 +204,14 @@ class AuthService with ChangeNotifier {
       User? user = userCredential.user;
 
       if (user != null) {
+        final email = user.email ?? '';
+
+        // Comprobar si el usuario está bloqueado antes de procesar nada más
+        if (await isEmailBlocked(email)) {
+          await signOut();
+          return 'Acceso denegado. Esta cuenta fue eliminada y no puede volver a utilizarse en el sistema.';
+        }
+
         DocumentSnapshot doc =
             await _db.collection('users').doc(user.uid).get();
         if (!doc.exists) {
@@ -216,7 +250,17 @@ class AuthService with ChangeNotifier {
             'rol': role,
             'id_categoria': category,
             'fecha_registro': FieldValue.serverTimestamp(),
+            'email_verificado': true, // Google accounts are verified by default
           });
+        } else {
+          // Ensure verification flag is true for existing users signing in with Google
+          final data = doc.data() as Map<String, dynamic>?;
+          if (data != null && data['email_verificado'] != true) {
+            await _db
+                .collection('users')
+                .doc(user.uid)
+                .update({'email_verificado': true});
+          }
         }
       }
       return null;
@@ -241,11 +285,40 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  // Password Reset
+  // Enviar correo de recuperación de contraseña
   Future<String?> sendPasswordResetEmail(String email) async {
     return _withTimeout(() async {
       try {
-        await _auth.sendPasswordResetEmail(email: email);
+        final emailLower = email.trim().toLowerCase();
+
+        // 0. Validar formato de email
+        final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+        if (!emailRegex.hasMatch(emailLower)) {
+          return 'El formato del correo electrónico no es válido.';
+        }
+
+        // 1. Comprobar si está bloqueado/eliminado
+        if (await isEmailBlocked(emailLower)) {
+          return 'Esta cuenta ha sido eliminada y no es posible recuperar el acceso.';
+        }
+
+        // 2. Comprobar si existe en el sistema (usuarios activos y verificados)
+        final userQuery = await _db
+            .collection('users')
+            .where('email', isEqualTo: emailLower)
+            .limit(1)
+            .get();
+
+        if (userQuery.docs.isEmpty) {
+          return 'No hay ningún usuario activo registrado con ese email.';
+        }
+
+        final userData = userQuery.docs.first.data();
+        if (userData['email_verificado'] != true) {
+          return 'Debes verificar tu correo electrónico antes de poder recuperar la contraseña.';
+        }
+
+        await _auth.sendPasswordResetEmail(email: emailLower);
         return null;
       } on FirebaseAuthException catch (e) {
         switch (e.code) {
@@ -260,6 +333,47 @@ class AuthService with ChangeNotifier {
         return 'Error al enviar el correo de recuperación.';
       }
     }(), actionName: 'Recuperar contraseña');
+  }
+
+  // Comprobar si un email está en la lista de usuarios eliminados/bloqueados
+  Future<bool> isEmailBlocked(String email) async {
+    try {
+      final doc = await _db
+          .collection('deleted_users')
+          .doc(email.trim().toLowerCase())
+          .get();
+      return doc.exists;
+    } catch (e) {
+      debugPrint('Error al comprobar email bloqueado: $e');
+      return false;
+    }
+  }
+
+  // Sync Auth email with Firestore
+  Future<void> syncEmailWithFirestore() async {
+    final user = _auth.currentUser;
+    if (user != null && user.email != null) {
+      try {
+        await user.reload(); // Refresh user state
+        final refreshedUser = _auth.currentUser;
+        if (refreshedUser != null && refreshedUser.email != null) {
+          // Check if Firestore email differs
+          final doc =
+              await _db.collection('users').doc(refreshedUser.uid).get();
+          if (doc.exists) {
+            final firestoreEmail = doc.get('email') as String?;
+            if (firestoreEmail != refreshedUser.email) {
+              await _db.collection('users').doc(refreshedUser.uid).update({
+                'email': refreshedUser.email,
+              });
+              debugPrint('Firestore email synced with verified Auth email');
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Error syncing email: $e');
+      }
+    }
   }
 
   Future<void> signOut() async {
@@ -322,6 +436,8 @@ class AuthService with ChangeNotifier {
         return 'No hay usuario autenticado';
       }
 
+      bool emailChangeRequested = false;
+
       // 1. Handle Email Change if provided and different
       if (email != null && email != user.email) {
         if (currentPassword == null) {
@@ -336,8 +452,12 @@ class AuthService with ChangeNotifier {
         await user.reauthenticateWithCredential(credential);
 
         // Update Email in Auth (Modern way sends verification automatically)
-        await user.verifyBeforeUpdateEmail(email);
-        // Note: The email in Firebase Auth won't change until the user clicks the link in their new email.
+        final actionCodeSettings = ActionCodeSettings(
+          url: 'https://alumno21.fpcantillana.org/',
+          handleCodeInApp: true,
+        );
+        await user.verifyBeforeUpdateEmail(email, actionCodeSettings);
+        emailChangeRequested = true;
       }
 
       // 2. Update Firestore
@@ -347,9 +467,13 @@ class AuthService with ChangeNotifier {
         'usuario': username,
       };
 
-      if (email != null) {
+      // ONLY update email in Firestore if it matched the current verified email
+      // and NO new email change was requested in this turn.
+      // This prevents the Firestore email from changing before verification.
+      if (email != null && !emailChangeRequested) {
         updates['email'] = email;
       }
+
       if (photoUrl != null) {
         updates['foto_perfil'] = photoUrl;
       }

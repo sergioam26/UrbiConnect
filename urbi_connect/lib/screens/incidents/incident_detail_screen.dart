@@ -134,13 +134,26 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
                       if (snapshot.hasData && snapshot.data!.exists) {
                         catName = snapshot.data!.get('nombre');
                       }
-                      return Text(
-                        catName,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).primaryColor,
-                        ),
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Categoría:',
+                            style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            catName,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Theme.of(context).primaryColor,
+                            ),
+                          ),
+                        ],
                       );
                     },
                   ),
@@ -278,7 +291,8 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
                   const SizedBox(height: 16),
                   if (FirebaseAuth.instance.currentUser?.uid ==
                           widget.incident.userId &&
-                      widget.incident.status.toLowerCase() != 'resuelta')
+                      widget.incident.status.toLowerCase() != 'resuelta' &&
+                      widget.incident.status.toLowerCase() != 'eliminada')
                     ListTile(
                       leading: const Icon(Icons.notifications_active,
                           color: Colors.orange),
@@ -321,7 +335,8 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
                   ),
                   if (FirebaseAuth.instance.currentUser?.uid ==
                           widget.incident.userId &&
-                      widget.incident.status.toLowerCase() != 'resuelta') ...[
+                      widget.incident.status.toLowerCase() != 'resuelta' &&
+                      widget.incident.status.toLowerCase() != 'eliminada') ...[
                     const SizedBox(height: 8),
                     ListTile(
                       leading: const Icon(Icons.edit_note_rounded,
@@ -359,6 +374,36 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
                             fontStyle: FontStyle.italic,
                             fontSize: 13),
                         textAlign: TextAlign.center,
+                      ),
+                    ),
+                  if (FirebaseAuth.instance.currentUser?.uid ==
+                          widget.incident.userId &&
+                      widget.incident.status.toLowerCase() == 'eliminada')
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                              color: Colors.red.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.info_outline, color: Colors.red),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Esta incidencia ha sido eliminada y no se puede modificar.',
+                                style: TextStyle(
+                                    color: Colors.red[800],
+                                    fontStyle: FontStyle.italic,
+                                    fontSize: 13),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                 ],
@@ -459,6 +504,9 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
         break;
       case 'resuelta':
         color = Colors.green;
+        break;
+      case 'eliminada':
+        color = Colors.red;
         break;
       default:
         color = Colors.grey;

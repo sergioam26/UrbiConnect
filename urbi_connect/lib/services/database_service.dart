@@ -32,10 +32,11 @@ class DatabaseService {
   // Subir imagen a Firebase Storage (Web)
   Future<String?> uploadImageWeb(Uint8List bytes) async {
     try {
-      debugPrint('Iniciando subida de imagen en Web... (${bytes.length} bytes)');
+      debugPrint(
+          'Iniciando subida de imagen en Web... (${bytes.length} bytes)');
       String fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
       Reference ref = _storage.ref().child('incidents').child(fileName);
-      
+
       UploadTask uploadTask = ref.putData(
         bytes,
         SettableMetadata(contentType: 'image/jpeg'),
@@ -43,7 +44,8 @@ class DatabaseService {
 
       // Escuchar el progreso para debug
       uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-        double progress = 100.0 * (snapshot.bytesTransferred / snapshot.totalBytes);
+        double progress =
+            100.0 * (snapshot.bytesTransferred / snapshot.totalBytes);
         debugPrint('Progreso de subida: ${progress.toStringAsFixed(2)}%');
       });
 
@@ -55,14 +57,15 @@ class DatabaseService {
           throw Exception('Timeout');
         },
       );
-      
+
       String downloadUrl = await snapshot.ref.getDownloadURL();
       debugPrint('Subida completada con éxito. URL: $downloadUrl');
       return downloadUrl;
     } catch (e) {
       debugPrint('Error crítico al subir imagen (Web): $e');
       if (e.toString().contains('CORS')) {
-        debugPrint('Detectado posible error de CORS. Revisa la configuración del bucket.');
+        debugPrint(
+            'Detectado posible error de CORS. Revisa la configuración del bucket.');
       }
       return null;
     }
@@ -115,13 +118,14 @@ class DatabaseService {
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;
         final profile = UserProfile.fromMap(data, doc.id);
-        
+
         // Auto-upgrade project owner to Admin
         final email = profile.email.toLowerCase();
-        if (email == 'sergioalgmir@gmail.com' && profile.role.toLowerCase() != 'admin') {
+        if (email == 'sergioalgmir@gmail.com' &&
+            profile.role.toLowerCase() != 'admin') {
           _db.collection('users').doc(uid).update({'rol': 'admin'});
         }
-        
+
         return profile;
       }
       return null;
@@ -140,19 +144,31 @@ class DatabaseService {
   }) async {
     try {
       // Intentar primero con el campo plural (array)
-      var responsables = await _db.collection('users')
-          .where('rol', whereIn: ['Responsable', 'Responsable Municipal', 'responsable', 'responsable municipal'])
+      var responsables = await _db
+          .collection('users')
+          .where('rol', whereIn: [
+            'Responsable',
+            'Responsable Municipal',
+            'responsable',
+            'responsable municipal'
+          ])
           .where('id_categorias', arrayContains: categoryId)
           .get();
-          
+
       if (responsables.docs.isEmpty) {
         // Intentar con el campo singular si el plural falla
-        responsables = await _db.collection('users')
-            .where('rol', whereIn: ['Responsable', 'Responsable Municipal', 'responsable', 'responsable municipal'])
+        responsables = await _db
+            .collection('users')
+            .where('rol', whereIn: [
+              'Responsable',
+              'Responsable Municipal',
+              'responsable',
+              'responsable municipal'
+            ])
             .where('id_categoria', isEqualTo: categoryId)
             .get();
       }
-          
+
       for (var doc in responsables.docs) {
         await _notificationService.sendNotification(
           userId: doc.id,
@@ -173,15 +189,18 @@ class DatabaseService {
       // 5 segundos para cumplir con RNF-01 (3s ideal, 5s límite técnico razonable)
       return await operation.timeout(
         const Duration(seconds: 5),
-        onTimeout: () => throw Exception('La conexión es lenta o inestable. Pulsa para reintentar.'),
+        onTimeout: () => throw Exception(
+            'La conexión es lenta o inestable. Pulsa para reintentar.'),
       );
     } catch (e) {
       debugPrint('Error en ${actionName ?? 'operación'}: $e');
       if (e.toString().contains('network-request-failed')) {
-        throw Exception('Sin conexión. La operación se completará automáticamente al recuperar la red.');
+        throw Exception(
+            'Sin conexión. La operación se completará automáticamente al recuperar la red.');
       }
       if (e.toString().contains('permission-denied')) {
-        throw Exception('Acceso denegado. No tienes permisos para realizar esta acción.');
+        throw Exception(
+            'Acceso denegado. No tienes permisos para realizar esta acción.');
       }
       rethrow;
     }
@@ -207,11 +226,13 @@ class DatabaseService {
       final data = incident.toMap();
       data['es_eliminada'] = false;
       final docRef = await _db.collection('Incidencia').add(data);
-      
+
       try {
-        final categorySnapshot = await _db.collection('Categoria').doc(incident.categoryId).get();
-        final categoryName = categorySnapshot.exists ? categorySnapshot.get('nombre') : 'Nueva';
-        
+        final categorySnapshot =
+            await _db.collection('Categoria').doc(incident.categoryId).get();
+        final categoryName =
+            categorySnapshot.exists ? categorySnapshot.get('nombre') : 'Nueva';
+
         await _notifyResponsibles(
           categoryId: incident.categoryId,
           title: 'Nueva incidencia: $categoryName',
@@ -232,19 +253,20 @@ class DatabaseService {
       if (newStatus == 'Resuelta') {
         updates['fecha_resolucion'] = FieldValue.serverTimestamp();
       }
-      
+
       await _db.collection('Incidencia').doc(id).update(updates);
-      
+
       // Notificar al ciudadano
       try {
         final doc = await _db.collection('Incidencia').doc(id).get();
         if (doc.exists) {
           final userId = doc.get('id_usuario');
-          
+
           await _notificationService.sendNotification(
             userId: userId,
             title: 'Actualización de incidencia',
-            body: 'Tu incidencia "${doc.get('titulo')}" ha cambiado su estado a: $newStatus',
+            body:
+                'Tu incidencia "${doc.get('titulo')}" ha cambiado su estado a: $newStatus',
             referenceId: id,
             type: 'incidencia',
           );
@@ -260,7 +282,7 @@ class DatabaseService {
     return _withTimeout(() async {
       final incidentDoc = await _db.collection('Incidencia').doc(id).get();
       if (!incidentDoc.exists) return;
-      
+
       final incidentData = incidentDoc.data() as Map<String, dynamic>;
       final categoryId = incidentData['id_categoria'];
 
@@ -274,7 +296,8 @@ class DatabaseService {
       await _notifyResponsibles(
         categoryId: categoryId,
         title: 'Incidencia eliminada por ciudadano',
-        body: 'La incidencia "${incidentData['titulo'] ?? ''}" ha sido eliminada. Motivo: $reason',
+        body:
+            'La incidencia "${incidentData['titulo'] ?? ''}" ha sido eliminada. Motivo: $reason',
         referenceId: id,
         type: 'incidencia_eliminada',
       );
@@ -308,14 +331,15 @@ class DatabaseService {
         categoryId: incident.categoryId,
         lastReminderAt: incident.lastReminderAt,
       );
-      
+
       final data = updatedIncident.toMap();
       await _db.collection('Incidencia').doc(incident.id).update(data);
-      
+
       await _notifyResponsibles(
         categoryId: incident.categoryId,
         title: 'Incidencia editada por ciudadano',
-        body: 'La incidencia "${incident.title}" ha sido modificada por el autor.',
+        body:
+            'La incidencia "${incident.title}" ha sido modificada por el autor.',
         referenceId: incident.id,
         type: 'incidencia_editada',
       );
@@ -323,7 +347,8 @@ class DatabaseService {
   }
 
   // Actualizar rol y categorías de un usuario
-  Future<void> updateUserRoleAndCategories(String uid, String role, List<String>? categories) {
+  Future<void> updateUserRoleAndCategories(
+      String uid, String role, List<String>? categories) {
     return _withTimeout(() async {
       await _db.collection('users').doc(uid).update({
         'rol': role,
@@ -340,8 +365,8 @@ class DatabaseService {
         if (!doc.exists) return false;
 
         final data = doc.data() as Map<String, dynamic>;
-        final lastReminder = data['ultimo_recordatorio'] != null 
-            ? (data['ultimo_recordatorio'] as Timestamp).toDate() 
+        final lastReminder = data['ultimo_recordatorio'] != null
+            ? (data['ultimo_recordatorio'] as Timestamp).toDate()
             : null;
 
         if (lastReminder != null) {
@@ -369,5 +394,53 @@ class DatabaseService {
         return false;
       }
     }(), actionName: 'Enviar recordatorio');
+  }
+
+  // Eliminar completamente un usuario y sus datos básicos, bloqueando su futuro acceso
+  Future<void> deleteUserFully(String uid, String email) async {
+    return _withTimeout(() async {
+      final batch = _db.batch();
+
+      // 1. Eliminar documento de usuario
+      batch.delete(_db.collection('users').doc(uid));
+
+      // 2. Eliminar notificaciones del usuario
+      final notifications = await _db
+          .collection('notifications')
+          .where('userId', isEqualTo: uid)
+          .get();
+      for (var doc in notifications.docs) {
+        batch.delete(doc.reference);
+      }
+
+      // 3. Eliminar o anonimizar incidencias del usuario
+      // Para cumplir estrictamente con "se eliminarán los datos", las borramos.
+      final incidences = await _db
+          .collection('Incidencia')
+          .where('id_usuario', isEqualTo: uid)
+          .get();
+      for (var doc in incidences.docs) {
+        batch.delete(doc.reference);
+      }
+
+      // 4. Eliminar tickets de soporte
+      final tickets = await _db
+          .collection('tickets')
+          .where('id_usuario', isEqualTo: uid)
+          .get();
+      for (var doc in tickets.docs) {
+        batch.delete(doc.reference);
+      }
+
+      // 5. Añadir a la lista de bloqueados/eliminados
+      batch.set(
+          _db.collection('deleted_users').doc(email.trim().toLowerCase()), {
+        'email': email.trim().toLowerCase(),
+        'fecha_eliminacion': FieldValue.serverTimestamp(),
+        'uid_original': uid,
+      });
+
+      await batch.commit();
+    }(), actionName: 'Eliminar usuario permanentemente');
   }
 }
