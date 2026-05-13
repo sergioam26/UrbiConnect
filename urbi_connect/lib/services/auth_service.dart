@@ -514,12 +514,15 @@ class AuthService with ChangeNotifier {
           .child('user_photos')
           .child('${uid}_$timestamp.jpg');
 
+      // SOLUCIÓN: Definimos los metadatos de imagen
+      final metadata = SettableMetadata(contentType: 'image/jpeg');
+
       if (kIsWeb && imageBytes != null) {
-        await storageRef.putData(imageBytes);
+        await storageRef.putData(imageBytes, metadata);
       } else if (imageFile != null) {
-        await storageRef.putFile(imageFile);
+        await storageRef.putFile(imageFile, metadata);
       } else if (imageBytes != null) {
-        await storageRef.putData(imageBytes);
+        await storageRef.putData(imageBytes, metadata);
       } else {
         return null;
       }

@@ -10,6 +10,7 @@ class AppNotification {
   final String? referenceId;
   final String? type;
   final bool isOfficial;
+  final String? imageUrl; // NUEVO: Variable para la imagen
 
   AppNotification({
     required this.id,
@@ -21,6 +22,7 @@ class AppNotification {
     this.referenceId,
     this.type,
     this.isOfficial = false,
+    this.imageUrl, // NUEVO
   });
 
   factory AppNotification.fromFirestore(DocumentSnapshot doc) {
@@ -37,6 +39,7 @@ class AppNotification {
       referenceId: data['id_referencia'],
       type: data['tipo'],
       isOfficial: data['es_oficial'] ?? false,
+      imageUrl: data['url_imagen'], // NUEVO: Extraer la URL de la base de datos
     );
   }
 
@@ -50,6 +53,7 @@ class AppNotification {
       'id_referencia': referenceId,
       'tipo': type,
       'es_oficial': isOfficial,
+      'url_imagen': imageUrl, // NUEVO
     };
   }
 }

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:urbi_connect/components/google_auth_button.dart';
 import 'package:urbi_connect/services/auth_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -101,6 +103,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  Future<void> _downloadApk() async {
+    // Sustituye esta URL por el enlace real donde subas tu archivo app-release.apk (por ejemplo, en tu servidor Plesk)
+    final Uri apkUrl = Uri.parse(
+        'https://alumno21.fpcantillana.org/descargas/urbiconnect.apk');
+
+    try {
+      if (!await launchUrl(apkUrl, mode: LaunchMode.externalApplication)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('No se pudo abrir el enlace de descarga')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error al descargar APK: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
@@ -114,12 +135,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             // Calculamos si la pantalla es "corta" para reducir espacios
-            final bool isShortScreen = constraints.maxHeight < 800;
+            final bool isShortScreen = constraints.maxHeight < 850;
 
             return SingleChildScrollView(
               physics: isShortScreen
                   ? const BouncingScrollPhysics()
-                  : const NeverScrollableScrollPhysics(),
+                  : const AlwaysScrollableScrollPhysics(),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   minWidth: constraints.maxWidth,
@@ -298,6 +319,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                           const EdgeInsets.symmetric(
                                               vertical: 12, horizontal: 16),
                                       suffixIcon: IconButton(
+                                        focusNode: FocusNode(
+                                            skipTraversal:
+                                                true), // Salta el botón con tabulación
                                         icon: Icon(
                                           _obscurePassword
                                               ? Icons.visibility_off
@@ -342,6 +366,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                           const EdgeInsets.symmetric(
                                               vertical: 12, horizontal: 16),
                                       suffixIcon: IconButton(
+                                        focusNode:
+                                            FocusNode(skipTraversal: true),
                                         icon: Icon(
                                           _obscureConfirmPassword
                                               ? Icons.visibility_off
@@ -432,6 +458,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   const GoogleAuthButton(label: 'Google'),
                                 ],
                               ),
+                              // --- NUEVO BOTÓN DE DESCARGA APK ---
+                              const SizedBox(height: 8),
+                              TextButton.icon(
+                                onPressed: _downloadApk,
+                                icon: const Icon(Icons.android_rounded,
+                                    size: 18,
+                                    color:
+                                        Color(0xFF3DDC84)), // Verde de Android
+                                label: const Text('Descargar App para Android'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: const Color(0xFF3DDC84),
+                                  textStyle: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600),
+                                  padding: EdgeInsets.zero,
+                                ),
+                              ),
+// ------------------------------------
                               if (!isShortScreen) const Spacer(flex: 2),
                             ],
                           ),

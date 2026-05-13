@@ -396,36 +396,80 @@ class DatabaseService {
     }(), actionName: 'Enviar recordatorio');
   }
 
-  // Eliminar completamente un usuario y sus datos básicos, bloqueando su futuro acceso
   Future<void> deleteUserFully(String uid, String email) async {
     return _withTimeout(() async {
       final batch = _db.batch();
+      final userDocRef = _db.collection('users').doc(uid);
+
+      // 0. Eliminar foto de perfil de Firebase Storage
+      final userDoc = await userDocRef.get();
+      if (userDoc.exists) {
+        final userData = userDoc.data() as Map<String, dynamic>;
+        final String? fotoUrl = userData['foto_perfil'];
+
+        if (fotoUrl != null && fotoUrl.isNotEmpty) {
+          try {
+            await FirebaseStorage.instance.refFromURL(fotoUrl).delete();
+          } catch (e) {
+            debugPrint('Error al eliminar la foto de perfil de Storage: $e');
+          }
+        }
+      }
 
       // 1. Eliminar documento de usuario
-      batch.delete(_db.collection('users').doc(uid));
+      batch.delete(userDocRef);
 
       // 2. Eliminar notificaciones del usuario
       final notifications = await _db
-          .collection('notifications')
-          .where('userId', isEqualTo: uid)
+          .collection('Notificaciones')
+          .where('id_usuario', isEqualTo: uid)
           .get();
       for (var doc in notifications.docs) {
         batch.delete(doc.reference);
       }
 
-      // 3. Eliminar o anonimizar incidencias del usuario
-      // Para cumplir estrictamente con "se eliminarán los datos", las borramos.
+      // --- MODIFICADO: 3. Eliminar incidencias del usuario y sus fotografías asociadas ---
       final incidences = await _db
           .collection('Incidencia')
           .where('id_usuario', isEqualTo: uid)
           .get();
+
       for (var doc in incidences.docs) {
+        final incidentData = doc.data() as Map<String, dynamic>;
+
+        // 3.1 Eliminar foto principal de la incidencia
+        final String? mainFotoUrl = incidentData['foto_url'];
+        if (mainFotoUrl != null && mainFotoUrl.isNotEmpty) {
+          try {
+            await FirebaseStorage.instance.refFromURL(mainFotoUrl).delete();
+          } catch (e) {
+            debugPrint('Error al eliminar foto principal de incidencia: $e');
+          }
+        }
+
+        // 3.2 Eliminar galería de fotos de la incidencia (si existe)
+        final List<dynamic>? fotosUrls = incidentData['fotos_urls'];
+        if (fotosUrls != null && fotosUrls.isNotEmpty) {
+          for (var url in fotosUrls) {
+            if (url.toString().isNotEmpty) {
+              try {
+                await FirebaseStorage.instance
+                    .refFromURL(url.toString())
+                    .delete();
+              } catch (e) {
+                debugPrint('Error al eliminar foto de galería: $e');
+              }
+            }
+          }
+        }
+
+        // Finalmente, borrar el documento de la incidencia en Firestore
         batch.delete(doc.reference);
       }
 
       // 4. Eliminar tickets de soporte
       final tickets = await _db
-          .collection('tickets')
+          .collection('Soporte')
           .where('id_usuario', isEqualTo: uid)
           .get();
       for (var doc in tickets.docs) {

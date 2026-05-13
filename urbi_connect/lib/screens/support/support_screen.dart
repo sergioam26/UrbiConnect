@@ -393,7 +393,7 @@ class _SupportScreenState extends State<SupportScreen> {
               builder: (context) => AlertDialog(
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(24)),
-                title: const Text('Detalles del Invitado'),
+                title: const Text('Detalles del invitado'),
                 content: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,

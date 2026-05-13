@@ -127,6 +127,68 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
     _messageController.clear();
   }
 
+  // --- NUEVA FUNCIÓN: Construye el título dinámico con nombre y rol ---
+  Widget _buildChatTitle(Map<String, dynamic> ticketData) {
+    if (widget.isAdmin) {
+      // 1. El Admin está viendo el chat: Comprobamos si el otro usuario es invitado
+      if (ticketData['es_invitado'] == true) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+                '${ticketData['nombre_invitado']} ${ticketData['apellidos_invitado']}',
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Text('INVITADO',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
+          ],
+        );
+      } else {
+        // 2. El Admin está viendo el chat: El otro usuario es un ciudadano registrado
+        return FutureBuilder<DocumentSnapshot>(
+          future: FirebaseFirestore.instance
+              .collection('users')
+              .doc(ticketData['id_usuario'])
+              .get(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData || !snapshot.data!.exists) {
+              return const Text('Cargando...',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold));
+            }
+            final userData = snapshot.data!.data() as Map<String, dynamic>;
+            final nombre = userData['nombre'] ?? 'Usuario';
+            final apellidos = userData['apellidos'] ?? '';
+            final rol =
+                (userData['rol'] ?? 'Ciudadano').toString().toUpperCase();
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text('$nombre $apellidos',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(rol,
+                    style: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.normal)),
+              ],
+            );
+          },
+        );
+      }
+    } else {
+      // 3. El ciudadano está viendo el chat: Siempre habla con la administración
+      return const Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text('Administración',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text('ADMINISTRADOR',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
+        ],
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<DocumentSnapshot>(
@@ -152,10 +214,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
           return Scaffold(
             backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             appBar: AppBar(
-              title: const Text(
-                'Chat de soporte',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
+              title: _buildChatTitle(ticketData),
               actions: widget.isAdmin
                   ? [
                       if (status != 'Cerrado')

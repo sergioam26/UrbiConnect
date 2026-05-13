@@ -242,6 +242,21 @@ class NotificationListScreen extends StatelessWidget {
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // --- NUEVO BLOQUE: Mostrar imagen si existe ---
+                    if (notification.imageUrl != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0, top: 4.0),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            notification.imageUrl!,
+                            height: 120,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                    // ----------------------------------------------
                     Text(
                       notification.body,
                       style: TextStyle(

@@ -271,7 +271,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       Navigator.pop(context);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $error')),
+        SnackBar(
+            content: Text(
+                'Error: La contraseña es incorrecta. No se pudo actualizar el email.')),
       );
     }
   }

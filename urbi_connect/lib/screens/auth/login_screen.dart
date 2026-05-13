@@ -5,6 +5,7 @@ import 'package:urbi_connect/components/google_auth_button.dart';
 import 'package:urbi_connect/screens/auth/register_screen.dart';
 import 'package:urbi_connect/services/auth_service.dart';
 import 'package:urbi_connect/services/support_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -65,12 +66,12 @@ class _LoginScreenState extends State<LoginScreen> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             // Calculamos si la pantalla es "corta" para reducir espacios
-            final bool isShortScreen = constraints.maxHeight < 700;
+            final bool isShortScreen = constraints.maxHeight < 850;
 
             return SingleChildScrollView(
               physics: isShortScreen
                   ? const BouncingScrollPhysics()
-                  : const NeverScrollableScrollPhysics(),
+                  : const AlwaysScrollableScrollPhysics(),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   minWidth: constraints.maxWidth,
@@ -304,6 +305,22 @@ class _LoginScreenState extends State<LoginScreen> {
                                 padding: EdgeInsets.zero,
                               ),
                             ),
+                            // --- NUEVO BOTÓN DE DESCARGA APK ---
+                            const SizedBox(height: 8),
+                            TextButton.icon(
+                              onPressed: _downloadApk,
+                              icon: const Icon(Icons.android_rounded,
+                                  size: 18,
+                                  color: Color(0xFF3DDC84)), // Verde de Android
+                              label: const Text('Descargar App para Android'),
+                              style: TextButton.styleFrom(
+                                foregroundColor: const Color(0xFF3DDC84),
+                                textStyle: GoogleFonts.inter(
+                                    fontSize: 12, fontWeight: FontWeight.w600),
+                                padding: EdgeInsets.zero,
+                              ),
+                            ),
+// ------------------------------------
                             if (!isShortScreen) const Spacer(flex: 2),
                           ],
                         ),
@@ -544,5 +561,24 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       },
     );
+  }
+
+  Future<void> _downloadApk() async {
+    // Sustituye esta URL por el enlace real donde subas tu archivo app-release.apk (por ejemplo, en tu servidor Plesk)
+    final Uri apkUrl = Uri.parse(
+        'https://alumno21.fpcantillana.org/descargas/urbiconnect.apk');
+
+    try {
+      if (!await launchUrl(apkUrl, mode: LaunchMode.externalApplication)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('No se pudo abrir el enlace de descarga')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error al descargar APK: $e');
+    }
   }
 }
