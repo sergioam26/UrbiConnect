@@ -130,10 +130,28 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
         final allDocs = snapshot.data?.docs ?? [];
 
         // Filtramos en cliente para evitar fallos por falta de índices compuestos en Firestore
+        // Además, filtramos los tickets cerrados de más de 21 días para ocultarlos
+        final now = DateTime.now();
+        final twentyOneDaysAgo = now.subtract(const Duration(days: 21));
+
         final filteredTickets = allDocs.where((doc) {
           final d = doc.data() as Map<String, dynamic>;
           final bool isDirect = d['iniciado_por_admin'] ?? false;
-          return type == 'admin_direct' ? isDirect : !isDirect;
+          final bool matchesType =
+              type == 'admin_direct' ? isDirect : !isDirect;
+          if (!matchesType) return false;
+
+          final estado = d['estado'] ?? 'Cerrado';
+          if (estado == 'Cerrado') {
+            final fechaCierre = (d['fecha_cierre'] as Timestamp?)?.toDate();
+            final fechaRef = fechaCierre ??
+                (d['fecha'] as Timestamp?)?.toDate() ??
+                (d['fecha_creacion'] as Timestamp?)?.toDate();
+            if (fechaRef != null && fechaRef.isBefore(twentyOneDaysAgo)) {
+              return false; // Ocultar
+            }
+          }
+          return true;
         }).toList();
 
         if (filteredTickets.isEmpty) {
@@ -222,6 +240,16 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
             const SizedBox(height: 4),
             Row(
               children: [
+                if (isGuest && data['email_invitado'] != null) ...[
+                  Text(
+                    '${data['email_invitado']} • ',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ],
                 Text(DateFormat('dd/MM HH:mm').format(lastUpdate),
                     style: TextStyle(
                         fontSize: 11,
@@ -253,13 +281,178 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
             ],
           ),
         ),
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (context) =>
-                  SupportChatScreen(ticketId: ticket.id, isAdmin: isAdmin)),
-        ),
+        onTap: () {
+          if (isAdmin && isGuest) {
+            _showGuestTicketDetailsDialog(context, ticket, data);
+          } else {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) =>
+                      SupportChatScreen(ticketId: ticket.id, isAdmin: isAdmin)),
+            );
+          }
+        },
       ),
+    );
+  }
+
+  void _showGuestTicketDetailsDialog(BuildContext context,
+      DocumentSnapshot ticket, Map<String, dynamic> data) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('Soporte')
+              .doc(ticket.id)
+              .snapshots(),
+          builder: (context, snapshot) {
+            final ticketData = snapshot.hasData && snapshot.data != null
+                ? snapshot.data!.data() as Map<String, dynamic>? ?? data
+                : data;
+            final String estado = ticketData['estado'] ?? 'Abierto';
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24)),
+              title: const Text('Detalles del invitado'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildMessageCenterDetailRow(context, 'Nombre',
+                        '${ticketData['nombre_invitado']} ${ticketData['apellidos_invitado']}'),
+                    const SizedBox(height: 12),
+                    _buildMessageCenterDetailRow(context, 'Email',
+                        ticketData['email_invitado'] ?? 'No proporcionado'),
+                    const SizedBox(height: 20),
+                    const Divider(),
+                    const SizedBox(height: 16),
+                    Text(
+                      'MENSAJE:',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: Theme.of(context).colorScheme.secondary,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      ticketData['descripcion'] ?? 'Sin descripción',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Theme.of(context).textTheme.bodyLarge?.color,
+                        height: 1.5,
+                      ),
+                    ),
+                    if (ticketData['url_imagen'] != null) ...[
+                      const SizedBox(height: 16),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          ticketData['url_imagen'],
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline_rounded,
+                              size: 18,
+                              color: Theme.of(context).colorScheme.primary),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Los tickets de invitados no permiten chat directo. Contacta por email.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                if (estado != 'Cerrado')
+                  TextButton.icon(
+                    onPressed: () async {
+                      await _supportService.updateTicketStatus(
+                          ticket.id, 'Cerrado');
+                      if (dialogContext.mounted) Navigator.pop(dialogContext);
+                    },
+                    icon: const Icon(Icons.close_rounded, color: Colors.red),
+                    label: const Text('Cerrar Ticket',
+                        style: TextStyle(color: Colors.red)),
+                  )
+                else
+                  TextButton.icon(
+                    onPressed: () async {
+                      await _supportService.updateTicketStatus(
+                          ticket.id, 'Abierto');
+                      if (dialogContext.mounted) Navigator.pop(dialogContext);
+                    },
+                    icon: const Icon(Icons.replay_rounded, color: Colors.green),
+                    label: const Text('Reabrir Ticket',
+                        style: TextStyle(color: Colors.green)),
+                  ),
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Regresar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildMessageCenterDetailRow(
+      BuildContext context, String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            color: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.color
+                ?.withValues(alpha: 0.6),
+            letterSpacing: 1.0,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
+          ),
+        ),
+      ],
     );
   }
 
@@ -400,7 +593,23 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
               return const Center(child: CircularProgressIndicator());
             }
 
-            var allDocs = snapshot.data!.docs;
+            final allDocsRaw = snapshot.data!.docs;
+
+            // Filtramos comunicados de más de 6 meses para mantenerlos físicamente en Firestore pero ocultarlos en la app
+            final now = DateTime.now();
+            final sixMonthsAgo = now.subtract(const Duration(days: 180));
+            final allDocs = allDocsRaw.where((doc) {
+              final d = doc.data() as Map<String, dynamic>;
+              if (d['tipo'] == 'broadcast' || d['tipo'] == 'oficial') {
+                final timestamp = d['fecha_creacion'] as Timestamp?;
+                if (timestamp != null &&
+                    timestamp.toDate().isBefore(sixMonthsAgo)) {
+                  return false; // Ocultar
+                }
+              }
+              return true;
+            }).toList();
+
             List<Map<String, dynamic>> filteredDocs = [];
 
             if (isAdmin) {
@@ -807,15 +1016,64 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
                   // Procesar tickets de soporte (incluye directos del admin)
                   final List<Map<String, dynamic>> allChats = [];
                   if (supportSnapshot.hasData) {
-                    allChats.addAll(supportSnapshot.data!.docs
+                    final now = DateTime.now();
+                    final twentyOneDaysAgo =
+                        now.subtract(const Duration(days: 21));
+
+                    final supportFiltered =
+                        supportSnapshot.data!.docs.where((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      final estado = data['estado'] ?? 'Cerrado';
+                      if (estado == 'Cerrado') {
+                        final fechaCierre =
+                            (data['fecha_cierre'] as Timestamp?)?.toDate();
+                        final fechaRef = fechaCierre ??
+                            (data['fecha'] as Timestamp?)?.toDate() ??
+                            (data['fecha_creacion'] as Timestamp?)?.toDate();
+                        if (fechaRef != null &&
+                            fechaRef.isBefore(twentyOneDaysAgo)) {
+                          return false; // Ocultar
+                        }
+                      }
+                      return true;
+                    });
+
+                    allChats.addAll(supportFiltered
                         .map((doc) => {'type': 'support', 'doc': doc}));
                   }
 
                   // Procesar incidencias
                   if (incidentSnapshot.hasData) {
+                    final now = DateTime.now();
+                    final fortyFiveDaysAgo =
+                        now.subtract(const Duration(days: 45));
+
                     final incidents = incidentSnapshot.data!.docs.where((doc) {
                       final data = doc.data() as Map<String, dynamic>;
-                      return data['es_eliminada'] != true;
+                      final bool esEliminada = data['es_eliminada'] == true ||
+                          data['estado'] == 'eliminada';
+                      final String estado = data['estado'] ?? 'pendiente';
+
+                      if (esEliminada) {
+                        final eliminadoEn =
+                            (data['eliminado_en'] as Timestamp?)?.toDate();
+                        final fechaRef = eliminadoEn ??
+                            (data['fecha_creacion'] as Timestamp?)?.toDate();
+                        if (fechaRef != null &&
+                            fechaRef.isBefore(fortyFiveDaysAgo)) {
+                          return false; // Ocultar si está eliminada hace más de 45 días
+                        }
+                      } else if (estado == 'Resuelta') {
+                        final fechaResolucion =
+                            (data['fecha_resolucion'] as Timestamp?)?.toDate();
+                        final fechaRef = fechaResolucion ??
+                            (data['fecha_creacion'] as Timestamp?)?.toDate();
+                        if (fechaRef != null &&
+                            fechaRef.isBefore(fortyFiveDaysAgo)) {
+                          return false; // Ocultar si está resuelta hace más de 45 días
+                        }
+                      }
+                      return true;
                     }).map((doc) => {'type': 'incident', 'doc': doc});
                     allChats.addAll(incidents);
                   }

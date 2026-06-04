@@ -89,14 +89,35 @@ class DatabaseService {
     }
 
     return query.snapshots().map((snapshot) {
+      final now = DateTime.now();
+      final fortyFiveDaysAgo = now.subtract(const Duration(days: 45));
+
       final incidents = snapshot.docs
           .map((doc) {
             try {
               final data = doc.data() as Map<String, dynamic>;
-              // Filtro manual de eliminadas para soportar documentos antiguos sin el campo
-              if (data['es_eliminada'] == true) {
-                return null;
+              final bool esEliminada =
+                  data['es_eliminada'] == true || data['estado'] == 'eliminada';
+              final String state = data['estado'] ?? 'pendiente';
+
+              if (esEliminada) {
+                final eliminadoEn =
+                    (data['eliminado_en'] as Timestamp?)?.toDate();
+                final fechaRef = eliminadoEn ??
+                    (data['fecha_creacion'] as Timestamp?)?.toDate();
+                if (fechaRef != null && fechaRef.isBefore(fortyFiveDaysAgo)) {
+                  return null; // Ocultar si está eliminada hace más de 45 días
+                }
+              } else if (state == 'Resuelta') {
+                final fechaResolucion =
+                    (data['fecha_resolucion'] as Timestamp?)?.toDate();
+                final fechaRef = fechaResolucion ??
+                    (data['fecha_creacion'] as Timestamp?)?.toDate();
+                if (fechaRef != null && fechaRef.isBefore(fortyFiveDaysAgo)) {
+                  return null; // Ocultar si está resuelta hace más de 45 días
+                }
               }
+
               return Incident.fromFirestore(doc);
             } catch (e) {
               debugPrint('Error al parsear incidencia ${doc.id}: $e');

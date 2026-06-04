@@ -215,6 +215,19 @@ class _IncidentEditScreenState extends State<IncidentEditScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
 
+      final bool isWithin48Hours =
+          DateTime.now().difference(widget.incident.createdAt).inHours < 48;
+      if (!isWithin48Hours) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'El plazo de edición de 48 horas para este reporte ha expirado.'),
+          ),
+        );
+        return;
+      }
+
       if (_currentPosition == null) {
         if (mounted) setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(

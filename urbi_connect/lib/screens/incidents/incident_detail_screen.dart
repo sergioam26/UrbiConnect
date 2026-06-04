@@ -338,19 +338,52 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
                       widget.incident.status.toLowerCase() != 'resuelta' &&
                       widget.incident.status.toLowerCase() != 'eliminada') ...[
                     const SizedBox(height: 8),
-                    ListTile(
-                      leading: const Icon(Icons.edit_note_rounded,
-                          color: Colors.blue),
-                      title: const Text('Editar incidencia'),
-                      onTap: () async {
-                        final result = await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => IncidentEditScreen(
-                                  incident: widget.incident)),
-                        );
-                        if (result == true) {
-                          if (context.mounted) Navigator.pop(context);
+                    Builder(
+                      builder: (context) {
+                        final bool isWithin48Hours = DateTime.now()
+                                .difference(widget.incident.createdAt)
+                                .inHours <
+                            48;
+                        if (isWithin48Hours) {
+                          return ListTile(
+                            leading: const Icon(Icons.edit_note_rounded,
+                                color: Colors.blue),
+                            title: const Text('Editar incidencia'),
+                            subtitle: const Text(
+                              'Permitido durante las primeras 48h desde la creación',
+                              style: TextStyle(fontSize: 11),
+                            ),
+                            onTap: () async {
+                              final result = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => IncidentEditScreen(
+                                        incident: widget.incident)),
+                              );
+                              if (result == true) {
+                                if (context.mounted) Navigator.pop(context);
+                              }
+                            },
+                          );
+                        } else {
+                          return ListTile(
+                            leading: const Icon(Icons.edit_off_rounded,
+                                color: Colors.grey),
+                            title:
+                                const Text('Editar incidencia (No disponible)'),
+                            subtitle: const Text(
+                              'El plazo de edición de 48 horas ha expirado.',
+                              style: TextStyle(fontSize: 11, color: Colors.red),
+                            ),
+                            onTap: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                      'Solo se permiten ediciones dentro de las primeras 48 horas desde la creación.'),
+                                ),
+                              );
+                            },
+                          );
                         }
                       },
                     ),

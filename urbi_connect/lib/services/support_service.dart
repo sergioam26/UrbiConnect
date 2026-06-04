@@ -257,8 +257,10 @@ class SupportService {
 
       if (!ticketDoc.exists) return;
 
-      final String currentStatus = ticketDoc.get('estado') ?? 'Cerrado';
-      final String userId = ticketDoc.get('id_usuario') ?? '';
+      final Map<String, dynamic> ticketData =
+          ticketDoc.data() as Map<String, dynamic>? ?? {};
+      final String currentStatus = ticketData['estado'] ?? 'Cerrado';
+      final String userId = ticketData['id_usuario'] ?? '';
 
       final Map<String, dynamic> updates = {'estado': status};
       if (status == 'Cerrado') {
@@ -306,70 +308,11 @@ class SupportService {
     }
   }
 
-  // Lógica de limpieza automática según requerimientos
+  // Lógica de limpieza automática según requerimientos: desactivados borrados físicos
+  // Los datos permanecen para siempre en Firestore debiendo ser filtrados en la aplicación.
   Future<void> performAutoCleanup() async {
-    final now = DateTime.now();
-
-    // 1. Soporte cerrado hace más de 15 días
-    final fifteenDaysAgo = now.subtract(const Duration(days: 15));
-    final oldTickets = await _db
-        .collection('Soporte')
-        .where('estado', isEqualTo: 'Cerrado')
-        .where('fecha_cierre', isLessThan: Timestamp.fromDate(fifteenDaysAgo))
-        .get();
-
-    for (var doc in oldTickets.docs) {
-      // Eliminar mensajes del subcollection primero
-      final messages = await doc.reference.collection('Chat').get();
-      for (var msg in messages.docs) {
-        await msg.reference.delete();
-      }
-      await doc.reference.delete();
-    }
-
-    // 2. Incidencias resueltas hace más de 60 días o marcadas como eliminadas
-    final sixtyDaysAgo = now.subtract(const Duration(days: 60));
-
-    // Buscar resueltas antiguas
-    final oldIncidents = await _db
-        .collection('Incidencia')
-        .where('estado', isEqualTo: 'Resuelta')
-        .where('fecha_resolucion', isLessThan: Timestamp.fromDate(sixtyDaysAgo))
-        .get();
-
-    // Buscar eliminadas (soft delete)
-    final deletedIncidents = await _db
-        .collection('Incidencia')
-        .where('es_eliminada', isEqualTo: true)
-        .get();
-
-    final allToCleanup = [...oldIncidents.docs, ...deletedIncidents.docs];
-
-    for (var doc in allToCleanup) {
-      // Eliminar mensajes de la incidencia (subcolección Chat)
-      final messages = await doc.reference.collection('Chat').get();
-      for (var msg in messages.docs) {
-        await msg.reference.delete();
-      }
-
-      // Si estaba resuelta hace 60 días, borramos el documento entero
-      // Si está marcada como eliminada (soft delete), borramos el documento entero para limpieza física definitiva
-      await doc.reference.delete();
-    }
-
-    // 3. Notificaciones enviadas por admin con más de 1 año (para admins)
-    // Se gestionará mediante un flag 'oculto_para_admin' o similar si se quiere mantener para el usuario,
-    // o borrado físico si es broadcast. El usuario dice "borrar las notificaciones enviadas por el admin de su pantalla de mensajes al año".
-    final oneYearAgo = now.subtract(const Duration(days: 365));
-    final oldNotifications = await _db
-        .collection('Notificaciones')
-        .where('tipo', isEqualTo: 'broadcast')
-        .where('fecha_creacion', isLessThan: Timestamp.fromDate(oneYearAgo))
-        .get();
-
-    for (var doc in oldNotifications.docs) {
-      await doc.reference.delete();
-    }
+    debugPrint(
+        'Exigencia del cliente: Borrado físico desactivado. Los datos se conservan para siempre en la base de datos.');
   }
 
   // Enviar mensaje en el chat de soporte
@@ -393,8 +336,10 @@ class SupportService {
       if (senderId != userId) {
         final senderDoc = await _db.collection('users').doc(senderId).get();
         if (senderDoc.exists) {
+          final Map<String, dynamic> senderData =
+              senderDoc.data() as Map<String, dynamic>? ?? {};
           final String role =
-              (senderDoc.get('rol') ?? '').toString().toLowerCase();
+              (senderData['rol'] ?? '').toString().toLowerCase();
           if (role == 'admin') {
             isSenderAdmin = true;
           }

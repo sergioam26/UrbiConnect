@@ -258,8 +258,28 @@ class _SupportScreenState extends State<SupportScreen> {
           }
           // Sort in memory to avoid index requirements
           final tickets = snapshot.data!.docs;
+
+          // Filtramos tickets cerrados de más de 21 días para mantenerlos físicamente en Firestore pero ocultarlos en la app
+          final now = DateTime.now();
+          final twentyOneDaysAgo = now.subtract(const Duration(days: 21));
+          final filteredDocs = tickets.where((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            final estado = data['estado'] ?? 'Cerrado';
+            if (estado == 'Cerrado') {
+              final fechaCierre =
+                  (data['fecha_cierre'] as Timestamp?)?.toDate();
+              final fechaRef = fechaCierre ??
+                  (data['fecha'] as Timestamp?)?.toDate() ??
+                  (data['fecha_creacion'] as Timestamp?)?.toDate();
+              if (fechaRef != null && fechaRef.isBefore(twentyOneDaysAgo)) {
+                return false; // Ocultar
+              }
+            }
+            return true;
+          }).toList();
+
           final List<QueryDocumentSnapshot> sortedTickets =
-              List<QueryDocumentSnapshot>.from(tickets);
+              List<QueryDocumentSnapshot>.from(filteredDocs);
           sortedTickets.sort((a, b) {
             final dataA = a.data() as Map<String, dynamic>;
             final dataB = b.data() as Map<String, dynamic>;
@@ -468,9 +488,32 @@ class _SupportScreenState extends State<SupportScreen> {
                   ),
                 ),
                 actions: [
+                  if (data['estado'] != 'Cerrado')
+                    TextButton.icon(
+                      onPressed: () async {
+                        await _supportService.updateTicketStatus(
+                            ticket.id, 'Cerrado');
+                        if (context.mounted) Navigator.pop(context);
+                      },
+                      icon: const Icon(Icons.close_rounded, color: Colors.red),
+                      label: const Text('Cerrar Ticket',
+                          style: TextStyle(color: Colors.red)),
+                    )
+                  else
+                    TextButton.icon(
+                      onPressed: () async {
+                        await _supportService.updateTicketStatus(
+                            ticket.id, 'Abierto');
+                        if (context.mounted) Navigator.pop(context);
+                      },
+                      icon:
+                          const Icon(Icons.replay_rounded, color: Colors.green),
+                      label: const Text('Reabrir Ticket',
+                          style: TextStyle(color: Colors.green)),
+                    ),
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('Cerrar'),
+                    child: const Text('Regresar'),
                   ),
                 ],
               ),

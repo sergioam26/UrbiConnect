@@ -227,31 +227,10 @@ class NotificationService {
     }
   }
 
-  // Eliminar notificaciones de más de 2 semanas
+  // Eliminar notificaciones de más de 2 semanas (desactivado borrado físico)
   Future<void> _deleteOldNotifications() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    try {
-      final twoWeeksAgo = DateTime.now().subtract(const Duration(days: 14));
-      final oldNotifications = await _db
-          .collection('Notificaciones')
-          .where('id_usuario', isEqualTo: user.uid)
-          .where('fecha_creacion', isLessThan: Timestamp.fromDate(twoWeeksAgo))
-          .get();
-
-      if (oldNotifications.docs.isNotEmpty) {
-        final batch = _db.batch();
-        for (var doc in oldNotifications.docs) {
-          batch.delete(doc.reference);
-        }
-        await batch.commit();
-        debugPrint(
-            'Se han eliminado ${oldNotifications.docs.length} notificaciones antiguas.');
-      }
-    } catch (e) {
-      debugPrint('Error al limpiar notificaciones antiguas: $e');
-    }
+    debugPrint(
+        'Exigencia del cliente: Borrado físico de notificaciones antiguas desactivado.');
   }
 
   // Stream de notificaciones del buzón
@@ -261,6 +240,8 @@ class NotificationService {
         .where('id_usuario', isEqualTo: userId)
         .snapshots()
         .map((snapshot) {
+      final twentyOneDaysAgo =
+          DateTime.now().subtract(const Duration(days: 21));
       final notifications = snapshot.docs
           .map((doc) {
             try {
@@ -271,6 +252,8 @@ class NotificationService {
             }
           })
           .whereType<AppNotification>()
+          .where((n) => n.createdAt
+              .isAfter(twentyOneDaysAgo)) // Ocultar en la app tras 21 días
           .toList();
 
       // Ordenar en memoria por fecha de creación descendente
@@ -291,7 +274,19 @@ class NotificationService {
         .where('id_usuario', isEqualTo: userId)
         .where('leido', isEqualTo: false)
         .snapshots()
-        .map((snapshot) => snapshot.docs.length);
+        .map((snapshot) {
+      final twentyOneDaysAgo =
+          DateTime.now().subtract(const Duration(days: 21));
+      return snapshot.docs.where((doc) {
+        try {
+          final timestamp = doc.get('fecha_creacion') as Timestamp?;
+          if (timestamp == null) return false;
+          return timestamp.toDate().isAfter(twentyOneDaysAgo);
+        } catch (_) {
+          return false;
+        }
+      }).length;
+    });
   }
 
   // Enviar notificación individual
