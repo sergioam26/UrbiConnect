@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:urbi_connect/models/incident.dart';
+import 'package:urbi_connect/services/export_service.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
@@ -28,10 +30,328 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     _categoryFuture = FirebaseFirestore.instance.collection('Categoria').get();
   }
 
+  void _showSuccessMessage(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle_rounded, color: Colors.white),
+            const SizedBox(width: 12),
+            Text(msg),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  void _showErrorMessage(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline_rounded, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(child: Text(msg)),
+          ],
+        ),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  void _exportAllIncidentsCSV() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Generando hoja de cálculo...',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final categoriesSnap =
+          await FirebaseFirestore.instance.collection('Categoria').get();
+      final Map<String, String> categoryNames = {};
+      for (var doc in categoriesSnap.docs) {
+        categoryNames[doc.id] = doc.get('nombre') ?? '';
+      }
+
+      final usersSnap =
+          await FirebaseFirestore.instance.collection('users').get();
+      final Map<String, String> userEmails = {};
+      for (var doc in usersSnap.docs) {
+        final data = doc.data() as Map<String, dynamic>?;
+        if (data != null && data.containsKey('email')) {
+          userEmails[doc.id] = data['email']?.toString() ?? '';
+        }
+      }
+
+      final incidentsSnap = await FirebaseFirestore.instance
+          .collection('Incidencia')
+          .where('es_eliminada', isEqualTo: false)
+          .get();
+
+      final List<Incident> incidents =
+          incidentsSnap.docs.map((doc) => Incident.fromFirestore(doc)).toList();
+
+      if (mounted) Navigator.pop(context);
+
+      if (incidents.isEmpty) {
+        _showErrorMessage('No hay incidencias para exportar.');
+        return;
+      }
+
+      await ExportService.exportIncidentsToCSV(
+          incidents, categoryNames, userEmails);
+      _showSuccessMessage('Archivo CSV exportado con éxito.');
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+      _showErrorMessage('Error al exportar CSV: $e');
+    }
+  }
+
+  void _exportAllIncidentsPDF() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Generando reporte PDF...',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final categoriesSnap =
+          await FirebaseFirestore.instance.collection('Categoria').get();
+      final Map<String, String> categoryNames = {};
+      for (var doc in categoriesSnap.docs) {
+        categoryNames[doc.id] = doc.get('nombre') ?? '';
+      }
+
+      final usersSnap =
+          await FirebaseFirestore.instance.collection('users').get();
+      final Map<String, String> userEmails = {};
+      for (var doc in usersSnap.docs) {
+        final data = doc.data() as Map<String, dynamic>?;
+        if (data != null && data.containsKey('email')) {
+          userEmails[doc.id] = data['email']?.toString() ?? '';
+        }
+      }
+
+      final incidentsSnap = await FirebaseFirestore.instance
+          .collection('Incidencia')
+          .where('es_eliminada', isEqualTo: false)
+          .get();
+
+      final List<Incident> incidents =
+          incidentsSnap.docs.map((doc) => Incident.fromFirestore(doc)).toList();
+
+      if (mounted) Navigator.pop(context);
+
+      if (incidents.isEmpty) {
+        _showErrorMessage('No hay reporte para exportar.');
+        return;
+      }
+
+      incidents.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      ExportService.exportIncidentsToPDF(incidents, categoryNames, userEmails);
+      _showSuccessMessage(
+          'Reporte consolidado de incidencias abierto para impresión.');
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+      _showErrorMessage('Error al exportar PDF: $e');
+    }
+  }
+
+  void _exportStatsPDF() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Calculando analíticas para exportar...',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final usersSnap =
+          await FirebaseFirestore.instance.collection('users').get();
+      final int citizens = usersSnap.docs
+          .where((u) => u.get('rol').toString().toLowerCase() == 'ciudadano')
+          .length;
+      final int staff = usersSnap.docs
+          .where((u) =>
+              u.get('rol').toString().toLowerCase() == 'responsable' ||
+              u.get('rol').toString().toLowerCase() == 'responsable municipal')
+          .length;
+      final int admins = usersSnap.docs
+          .where((u) => u.get('rol').toString().toLowerCase() == 'admin')
+          .length;
+
+      final incidentsSnap = await FirebaseFirestore.instance
+          .collection('Incidencia')
+          .where('es_eliminada', isEqualTo: false)
+          .get();
+
+      final int pending = incidentsSnap.docs
+          .where((i) => i.get('estado').toString().toLowerCase() == 'pendiente')
+          .length;
+      final int inProcess = incidentsSnap.docs
+          .where(
+              (i) => i.get('estado').toString().toLowerCase() == 'en proceso')
+          .length;
+      final int resolved = incidentsSnap.docs
+          .where((i) => i.get('estado').toString().toLowerCase() == 'resuelta')
+          .length;
+
+      final categoriesSnap =
+          await FirebaseFirestore.instance.collection('Categoria').get();
+      final List<Map<String, dynamic>> categoryStats = [];
+
+      for (var catDoc in categoriesSnap.docs) {
+        final name = catDoc.get('nombre') ?? '';
+        final count = incidentsSnap.docs
+            .where((i) => i.get('id_categoria') == catDoc.id)
+            .length;
+        categoryStats.add({
+          'name': name,
+          'count': count,
+        });
+      }
+
+      categoryStats.sort((a, b) => b['count'].compareTo(a['count']));
+
+      if (mounted) Navigator.pop(context);
+
+      ExportService.exportStatsToPDF(
+        citizens: citizens,
+        staff: staff,
+        admins: admins,
+        pending: pending,
+        inProcess: inProcess,
+        resolved: resolved,
+        categoryStats: categoryStats,
+      );
+      _showSuccessMessage(
+          'Informe Estadístico abierto para visualización/impresión.');
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+      _showErrorMessage('Error al exportar informe estadístico: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Análisis de UrbiConnect')),
+      appBar: AppBar(
+        title: const Text('Análisis de UrbiConnect'),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.download_rounded),
+            tooltip: 'Exportar datos',
+            offset: const Offset(0, 48),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            onSelected: (value) {
+              if (value == 'csv') {
+                _exportAllIncidentsCSV();
+              } else if (value == 'incidents_pdf') {
+                _exportAllIncidentsPDF();
+              } else if (value == 'stats_pdf') {
+                _exportStatsPDF();
+              }
+            },
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              const PopupMenuItem<String>(
+                value: 'csv',
+                child: Row(
+                  children: [
+                    Icon(Icons.table_rows_rounded,
+                        color: Colors.green, size: 20),
+                    SizedBox(width: 12),
+                    Text('Excel / CSV de incidencias',
+                        style: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.normal)),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem<String>(
+                value: 'incidents_pdf',
+                child: Row(
+                  children: [
+                    Icon(Icons.picture_as_pdf_rounded,
+                        color: Colors.red, size: 20),
+                    SizedBox(width: 12),
+                    Text('Lista de incidencias (PDF)',
+                        style: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.normal)),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem<String>(
+                value: 'stats_pdf',
+                child: Row(
+                  children: [
+                    Icon(Icons.analytics_rounded, color: Colors.blue, size: 20),
+                    SizedBox(width: 12),
+                    Text('Informe estadístico (PDF)',
+                        style: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.normal)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 16),
+        ],
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
