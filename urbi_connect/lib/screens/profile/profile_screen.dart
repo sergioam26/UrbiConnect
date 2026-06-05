@@ -3,17 +3,18 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:urbi_connect/config/app_config.dart';
 import 'package:urbi_connect/models/user_profile.dart';
 import 'package:urbi_connect/screens/profile/change_password_screen.dart'
     as security;
 import 'package:urbi_connect/screens/profile/edit_profile_screen.dart';
 import 'package:urbi_connect/screens/support/support_screen.dart';
 import 'package:urbi_connect/services/auth_service.dart';
-import 'package:urbi_connect/services/database_service.dart';
 import 'package:urbi_connect/services/theme_service.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final UserProfile profile;
+  const ProfileScreen({super.key, required this.profile});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -43,28 +44,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
-      body: StreamBuilder<UserProfile?>(
-          stream: DatabaseService().getUserProfile(user?.uid ?? ''),
-          builder: (context, snapshot) {
-            final profile = snapshot.data;
-
-            return RefreshIndicator(
-              onRefresh: () => authService.syncEmailWithFirestore(),
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: Column(
-                  children: [
-                    _buildHeader(context, user, profile),
-                    const SizedBox(height: 12),
-                    _buildInfoSection(context, user, profile),
-                    const SizedBox(height: 12),
-                    _buildSettingsSection(context, authService, profile),
-                    const SizedBox(height: 32),
-                  ],
-                ),
-              ),
-            );
-          }),
+      body: RefreshIndicator(
+        onRefresh: () => authService.syncEmailWithFirestore(),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            children: [
+              _buildHeader(context, user, widget.profile),
+              const SizedBox(height: 12),
+              _buildInfoSection(context, user, widget.profile),
+              const SizedBox(height: 12),
+              _buildSettingsSection(context, authService, widget.profile),
+              const SizedBox(height: 32),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -341,6 +336,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     },
                   ),
                 ],
+                if (profile?.email.toLowerCase() ==
+                    AppConfig.superUserEmail.toLowerCase()) ...[
+                  _buildDivider(context),
+                  _buildActionTile(
+                    context,
+                    Icons.supervised_user_circle_rounded,
+                    'Conmutar rol activo (Súper usuario)',
+                    Colors.amber[700]!,
+                    () => _showSuperuserSwitcher(
+                        context, profile!.uid, profile.role),
+                  ),
+                ],
                 _buildDivider(context),
                 _buildActionTile(
                   context,
@@ -488,6 +495,193 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: const Text('Salir'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showSuperuserSwitcher(
+      BuildContext context, String uid, String currentRole) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.shield_rounded,
+                    color: Colors.amber, size: 28),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Simulador de rol',
+                  style: GoogleFonts.montserrat(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Como súper usuario, puedes simular cualquiera de los roles del sistema. Las vistas, accesos y permisos se actualizarán de forma instantánea.',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white70
+                      : Colors.black54,
+                ),
+              ),
+              const SizedBox(height: 20),
+              _buildRoleSwitcherOption(
+                context,
+                uid: uid,
+                roleValue: 'admin',
+                label: 'Administrador',
+                icon: Icons.admin_panel_settings_rounded,
+                color: Colors.blueGrey,
+                isSelected: currentRole == 'admin',
+              ),
+              const SizedBox(height: 12),
+              _buildRoleSwitcherOption(
+                context,
+                uid: uid,
+                roleValue: 'responsable',
+                label: 'Responsable municipal',
+                icon: Icons.engineering_rounded,
+                color: Colors.teal,
+                isSelected: currentRole == 'responsable' ||
+                    currentRole == 'responsable municipal',
+              ),
+              const SizedBox(height: 12),
+              _buildRoleSwitcherOption(
+                context,
+                uid: uid,
+                roleValue: 'ciudadano',
+                label: 'Ciudadano',
+                icon: Icons.person_rounded,
+                color: Theme.of(context).colorScheme.primary,
+                isSelected: currentRole == 'ciudadano',
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cerrar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildRoleSwitcherOption(
+    BuildContext context, {
+    required String uid,
+    required String roleValue,
+    required String label,
+    required IconData icon,
+    required Color color,
+    required bool isSelected,
+  }) {
+    return InkWell(
+      onTap: () async {
+        Navigator.pop(context);
+        try {
+          final currentUser = FirebaseAuth.instance.currentUser;
+          final isSuperuser = currentUser?.email?.toLowerCase() ==
+              AppConfig.superUserEmail.toLowerCase();
+          if (isSuperuser) {
+            SuperuserSession.simulatedRole = roleValue;
+          } else {
+            final updates = <String, dynamic>{'rol': roleValue};
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(uid)
+                .update(updates);
+          }
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    const Icon(Icons.check_circle_rounded, color: Colors.white),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                          'Rol simulado cambiado a ${label.toLowerCase()} con éxito.'),
+                    ),
+                  ],
+                ),
+                backgroundColor: color,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error al cambiar rol: $e'),
+                backgroundColor: Colors.red,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        }
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected
+                ? color
+                : Theme.of(context).colorScheme.outlineVariant,
+            width: isSelected ? 2 : 1,
+          ),
+          color: isSelected
+              ? color.withValues(alpha: 0.08)
+              : Theme.of(context).colorScheme.surface,
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: isSelected ? color : Colors.grey, size: 24),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  fontSize: 14,
+                  color: isSelected
+                      ? color
+                      : Theme.of(context).textTheme.bodyLarge?.color,
+                ),
+              ),
+            ),
+            if (isSelected)
+              Icon(Icons.check_circle_rounded, color: color, size: 20)
+            else
+              const Icon(Icons.circle_outlined, color: Colors.grey, size: 20),
+          ],
+        ),
       ),
     );
   }

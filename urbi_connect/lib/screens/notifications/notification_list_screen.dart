@@ -12,7 +12,8 @@ import 'package:urbi_connect/screens/support/support_chat_screen.dart';
 import 'package:urbi_connect/services/notification_service.dart';
 
 class NotificationListScreen extends StatelessWidget {
-  const NotificationListScreen({super.key});
+  final UserProfile profile;
+  const NotificationListScreen({super.key, required this.profile});
 
   Future<void> _handleNotificationTap(
       BuildContext context, AppNotification notification) async {
@@ -40,7 +41,7 @@ class NotificationListScreen extends StatelessWidget {
           notification.type == 'incidencia_editada' ||
           notification.type == 'recordatorio' ||
           notification.type == 'incidencia_eliminada') {
-        // Obtener la incidencia y el perfil del usuario para saber a qué pantalla ir
+        // Obtener la incidencia para saber a qué pantalla ir
         final incidentDoc = await FirebaseFirestore.instance
             .collection('Incidencia')
             .doc(notification.referenceId)
@@ -48,16 +49,6 @@ class NotificationListScreen extends StatelessWidget {
         if (!incidentDoc.exists) return;
 
         final incident = Incident.fromFirestore(incidentDoc);
-        final user = FirebaseAuth.instance.currentUser;
-        if (user == null) return;
-
-        final profileDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
-        if (!profileDoc.exists) return;
-
-        final profile = UserProfile.fromMap(profileDoc.data()!, user.uid);
 
         if (context.mounted) {
           final role = profile.role.toLowerCase();
@@ -82,12 +73,7 @@ class NotificationListScreen extends StatelessWidget {
         }
       } else if (notification.type == 'soporte' ||
           notification.type == 'chat_soporte') {
-        final profileDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(FirebaseAuth.instance.currentUser?.uid ?? '')
-            .get();
-        final isAdmin =
-            profileDoc.exists && profileDoc.data()?['rol'] == 'Admin';
+        final bool isAdmin = profile.role.toLowerCase() == 'admin';
 
         if (context.mounted) {
           Navigator.push(
@@ -126,7 +112,17 @@ class NotificationListScreen extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final notifications = snapshot.data ?? [];
+        final rawNotifications = snapshot.data ?? [];
+        final String currentRole = profile.role.toLowerCase();
+        final bool isAdmin = currentRole == 'admin';
+
+        final notifications = rawNotifications.where((n) {
+          if (n.type == 'chat') {
+            // El chat de incidencias solo se muestra para ciudadanos o responsables, no para admins
+            return !isAdmin;
+          }
+          return true;
+        }).toList();
 
         if (notifications.isEmpty) {
           return const Center(

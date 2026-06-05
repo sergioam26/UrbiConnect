@@ -1,18 +1,18 @@
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:urbi_connect/models/incident.dart';
-import 'package:urbi_connect/services/database_service.dart';
+import 'package:urbi_connect/models/user_profile.dart';
 import 'package:urbi_connect/screens/incidents/incident_detail_screen.dart';
 import 'package:urbi_connect/screens/incidents/responsible_incident_detail_screen.dart';
-import 'package:intl/intl.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:urbi_connect/models/user_profile.dart';
+import 'package:urbi_connect/services/database_service.dart';
 
 class IncidentListScreen extends StatefulWidget {
-  const IncidentListScreen({super.key});
+  final UserProfile profile;
+  const IncidentListScreen({super.key, required this.profile});
 
   @override
   State<IncidentListScreen> createState() => _IncidentListScreenState();
@@ -24,16 +24,30 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
   DateTimeRange? _dateRangeFilter;
   bool _isAscending = false; // Default descending (newest first)
 
-  late Stream<UserProfile?> _userProfileStream;
-  UserProfile? _lastProfile;
+  Stream<List<Incident>>? _incidentsStream;
+  String? _lastIncidentRole;
 
   @override
   void initState() {
     super.initState();
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      _userProfileStream = DatabaseService().getUserProfile(user.uid);
+    _updateIncidentsStream();
+  }
+
+  @override
+  void didUpdateWidget(covariant IncidentListScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.profile.role != widget.profile.role ||
+        oldWidget.profile.categories?.join(",") !=
+            widget.profile.categories?.join(",")) {
+      _updateIncidentsStream();
     }
+  }
+
+  void _updateIncidentsStream() {
+    final dbService = DatabaseService();
+    _incidentsStream = dbService.getIncidents(widget.profile);
+    _lastIncidentRole =
+        '${widget.profile.role}-${widget.profile.categories?.join(",") ?? ""}';
   }
 
   List<Incident> _filterAndSortIncidents(List<Incident> incidents) {
@@ -85,95 +99,78 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final dbService = DatabaseService();
     final user = FirebaseAuth.instance.currentUser;
 
     if (user == null) {
       return const Center(child: Text('Usuario no autenticado'));
     }
 
-    return StreamBuilder<UserProfile?>(
-      stream: _userProfileStream,
-      builder: (context, userSnapshot) {
-        if (userSnapshot.hasError) {
-          return const Center(child: Text('Error al cargar perfil'));
-        }
-        if (userSnapshot.connectionState == ConnectionState.waiting &&
-            _lastProfile == null) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    final String role = widget.profile.role.toLowerCase();
+    final bool isResponsible =
+        role == 'responsable' || role == 'responsable municipal';
 
-        if (userSnapshot.hasData) {
-          _lastProfile = userSnapshot.data;
-        }
+    if (_incidentsStream == null) {
+      _updateIncidentsStream();
+    }
 
-        final profile = _lastProfile;
-        if (profile == null) {
-          return const Center(child: Text('Perfil no encontrado'));
-        }
+    return Column(
+      children: [
+        if (isResponsible) ...[
+          const SizedBox(height: 8),
+          _buildStatusFilters(),
+        ] else
+          _buildUnifiedFilterButton(),
+        Expanded(
+          child: StreamBuilder<List<Incident>>(
+            stream: _incidentsStream,
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return const Center(child: Text('Error al cargar datos'));
+              }
+              if (snapshot.connectionState == ConnectionState.waiting &&
+                  !snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-        final role = profile.role.toLowerCase();
-        final bool isResponsible =
-            role == 'responsable' || role == 'responsable municipal';
+              final allIncidents = snapshot.data ?? [];
+              final incidents = _filterAndSortIncidents(allIncidents);
 
-        return Column(
-          children: [
-            if (isResponsible) ...[
-              const SizedBox(height: 8),
-              _buildStatusFilters(),
-            ] else
-              _buildUnifiedFilterButton(),
-            Expanded(
-              child: StreamBuilder<List<Incident>>(
-                stream: dbService.getIncidents(profile),
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    return const Center(child: Text('Error al cargar datos'));
-                  }
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
+              if (allIncidents.isEmpty &&
+                  snapshot.connectionState != ConnectionState.waiting) {
+                return _buildEmptyState();
+              }
 
-                  final allIncidents = snapshot.data ?? [];
-                  final incidents = _filterAndSortIncidents(allIncidents);
+              if (incidents.isEmpty &&
+                  (_statusFilter != 'Todos' ||
+                      _categoryFilter != null ||
+                      _dateRangeFilter != null)) {
+                return const Center(
+                    child:
+                        Text('No hay coincidencias con los filtros aplicados'));
+              }
 
-                  if (allIncidents.isEmpty) {
-                    return _buildEmptyState();
-                  }
+              if (isResponsible) {
+                final grouped = _groupIncidents(incidents);
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+                  children: grouped.keys.map((catId) {
+                    return _buildCategoryGroup(
+                        catId, grouped[catId]!, widget.profile);
+                  }).toList(),
+                );
+              }
 
-                  if (incidents.isEmpty &&
-                      (_statusFilter != 'Todos' ||
-                          _categoryFilter != null ||
-                          _dateRangeFilter != null)) {
-                    return const Center(
-                        child: Text(
-                            'No hay coincidencias con los filtros aplicados'));
-                  }
-
-                  if (isResponsible) {
-                    final grouped = _groupIncidents(incidents);
-                    return ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
-                      children: grouped.keys.map((catId) {
-                        return _buildCategoryGroup(
-                            catId, grouped[catId]!, profile);
-                      }).toList(),
-                    );
-                  }
-
-                  return ListView.builder(
-                    itemCount: incidents.length,
-                    padding: const EdgeInsets.only(bottom: 80),
-                    itemBuilder: (context, index) {
-                      return _buildIncidentCard(incidents[index], profile);
-                    },
-                  );
+              return ListView.builder(
+                itemCount: incidents.length,
+                padding: const EdgeInsets.only(bottom: 80),
+                itemBuilder: (context, index) {
+                  return _buildIncidentCard(incidents[index], widget.profile);
                 },
-              ),
-            ),
-          ],
-        );
-      },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 

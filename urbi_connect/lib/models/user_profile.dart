@@ -1,3 +1,19 @@
+import 'package:flutter/foundation.dart';
+import 'package:urbi_connect/config/app_config.dart';
+
+class SuperuserSession {
+  static final ValueNotifier<String> roleNotifier =
+      ValueNotifier<String>('admin');
+
+  static String get activeRole {
+    return roleNotifier.value;
+  }
+
+  static set simulatedRole(String val) {
+    roleNotifier.value = val;
+  }
+}
+
 class UserProfile {
   final String uid;
   final String name;
@@ -29,13 +45,19 @@ class UserProfile {
       categories = [data['id_categoria'].toString()];
     }
 
+    final emailVal = (data['email'] ?? '').toString().toLowerCase();
+    String activeRole = (data['rol'] ?? 'ciudadano').toString().toLowerCase();
+    if (emailVal == AppConfig.superUserEmail.toLowerCase()) {
+      activeRole = SuperuserSession.activeRole;
+    }
+
     return UserProfile(
       uid: uid,
       name: data['nombre'] ?? '',
       surnames: data['apellidos'] ?? '',
       email: data['email'] ?? '',
       username: data['usuario'] ?? '',
-      role: (data['rol'] ?? 'ciudadano').toString().toLowerCase(),
+      role: activeRole,
       profilePhoto: data['foto_perfil'],
       categories: categories,
       pushToken: data['token_push'],

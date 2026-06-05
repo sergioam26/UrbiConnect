@@ -7,6 +7,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:urbi_connect/config/app_config.dart';
 
 class AuthService with ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -124,7 +125,7 @@ class AuthService with ChangeNotifier {
         String role = 'ciudadano';
 
         // Default Admin for the project owner
-        if (email == 'sergioalgmir@gmail.com') {
+        if (email == AppConfig.superUserEmail.toLowerCase()) {
           role = 'admin';
         }
 
@@ -222,7 +223,7 @@ class AuthService with ChangeNotifier {
               .get();
           String role = 'ciudadano';
 
-          if (email == 'sergioalgmir@gmail.com') {
+          if (email == AppConfig.superUserEmail.toLowerCase()) {
             role = 'admin';
           }
 

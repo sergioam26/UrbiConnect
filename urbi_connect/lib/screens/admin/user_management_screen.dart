@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:urbi_connect/config/app_config.dart';
 import 'package:urbi_connect/models/user_profile.dart';
 import 'package:urbi_connect/screens/support/support_chat_screen.dart';
 import 'package:urbi_connect/services/database_service.dart';
@@ -403,7 +404,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                         }
                         if (targetResponsibles) {
                           roles.add('Responsable');
-                          roles.add('Responsable Municipal');
+                          roles.add('Responsable municipal');
                         }
 
                         await _notificationService.broadcastNotification(
@@ -494,7 +495,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: user.uid == FirebaseAuth.instance.currentUser?.uid
+            onTap: (user.uid == FirebaseAuth.instance.currentUser?.uid ||
+                    (user.role.toLowerCase() == 'admin' &&
+                        FirebaseAuth.instance.currentUser?.email
+                                ?.toLowerCase() !=
+                            AppConfig.superUserEmail.toLowerCase()))
                 ? null
                 : () => _showRoleAssignment(context, user),
             child: Padding(
@@ -610,6 +615,12 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       return const SizedBox.shrink();
     }
 
+    final targetIsAdmin = user.role.toLowerCase() == 'admin';
+    final currentIsSuperuser =
+        FirebaseAuth.instance.currentUser?.email?.toLowerCase() ==
+            AppConfig.superUserEmail.toLowerCase();
+    final hideAdminControls = targetIsAdmin && !currentIsSuperuser;
+
     return Column(
       children: [
         Row(
@@ -633,31 +644,35 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 4),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.shield_outlined,
-                  size: 20, color: Color(0xFF6366F1)),
-              onPressed: () => _showRoleAssignment(context, user),
-              tooltip: 'Gestionar permisos',
-              style: IconButton.styleFrom(
-                backgroundColor: const Color(0xFF6366F1).withValues(alpha: 0.1),
+        if (!hideAdminControls) ...[
+          const SizedBox(height: 4),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.shield_outlined,
+                    size: 20, color: Color(0xFF6366F1)),
+                onPressed: () => _showRoleAssignment(context, user),
+                tooltip: 'Gestionar permisos',
+                style: IconButton.styleFrom(
+                  backgroundColor:
+                      const Color(0xFF6366F1).withValues(alpha: 0.1),
+                ),
               ),
-            ),
-            const SizedBox(width: 4),
-            IconButton(
-              icon: const Icon(Icons.delete_outline_rounded,
-                  size: 20, color: Color(0xFFEF4444)),
-              onPressed: () => _confirmDelete(context, user),
-              tooltip: 'Eliminar usuario',
-              style: IconButton.styleFrom(
-                backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.1),
+              const SizedBox(width: 4),
+              IconButton(
+                icon: const Icon(Icons.delete_outline_rounded,
+                    size: 20, color: Color(0xFFEF4444)),
+                onPressed: () => _confirmDelete(context, user),
+                tooltip: 'Eliminar usuario',
+                style: IconButton.styleFrom(
+                  backgroundColor:
+                      const Color(0xFFEF4444).withValues(alpha: 0.1),
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ],
     );
   }
@@ -1109,6 +1124,11 @@ class _RoleAssignmentSheetState extends State<RoleAssignmentSheet> {
       currentRoleValue = 'responsable municipal';
     }
 
+    final isSuperUser =
+        FirebaseAuth.instance.currentUser?.email?.toLowerCase() ==
+            AppConfig.superUserEmail.toLowerCase();
+    final showAdminOption = isSuperUser || currentRoleValue == 'admin';
+
     return Container(
       padding: EdgeInsets.only(
         left: 20,
@@ -1129,12 +1149,14 @@ class _RoleAssignmentSheetState extends State<RoleAssignmentSheet> {
           DropdownButton<String>(
             value: currentRoleValue,
             isExpanded: true,
-            items: const [
-              DropdownMenuItem(value: 'ciudadano', child: Text('Ciudadano')),
-              DropdownMenuItem(
+            items: [
+              const DropdownMenuItem(
+                  value: 'ciudadano', child: Text('Ciudadano')),
+              const DropdownMenuItem(
                   value: 'responsable municipal',
-                  child: Text('Responsable Municipal')),
-              DropdownMenuItem(value: 'admin', child: Text('Admin')),
+                  child: Text('Responsable municipal')),
+              if (showAdminOption)
+                const DropdownMenuItem(value: 'admin', child: Text('Admin')),
             ],
             onChanged: (val) {
               if (val != null) {

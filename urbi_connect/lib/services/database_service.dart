@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
+import 'package:urbi_connect/config/app_config.dart';
 import 'package:urbi_connect/models/incident.dart';
 import 'package:urbi_connect/models/user_profile.dart';
 import 'package:urbi_connect/services/notification_service.dart';
@@ -81,10 +83,18 @@ class DatabaseService {
     if (role == 'ciudadano') {
       query = query.where('id_usuario', isEqualTo: profile.uid);
     } else if (role == 'responsable' || role == 'responsable municipal') {
-      if (profile.categories != null && profile.categories!.isNotEmpty) {
-        query = query.where('id_categoria', whereIn: profile.categories);
+      if (profile.email.toLowerCase() ==
+          AppConfig.superUserEmail.toLowerCase()) {
+        // El súper usuario en rol de responsable ve todas las incidencias para probar fácilmente (o las asignadas si tiene)
+        if (profile.categories != null && profile.categories!.isNotEmpty) {
+          query = query.where('id_categoria', whereIn: profile.categories);
+        }
       } else {
-        return Stream.value([]);
+        if (profile.categories != null && profile.categories!.isNotEmpty) {
+          query = query.where('id_categoria', whereIn: profile.categories);
+        } else {
+          return Stream.value([]);
+        }
       }
     }
 
@@ -137,17 +147,24 @@ class DatabaseService {
     if (uid.isEmpty) return Stream.value(null);
     return _db.collection('users').doc(uid).snapshots().map((doc) {
       if (doc.exists && doc.data() != null) {
-        final data = doc.data()!;
-        final profile = UserProfile.fromMap(data, doc.id);
+        final data = doc.data() as Map<String, dynamic>;
 
-        // Auto-upgrade project owner to Admin
-        final email = profile.email.toLowerCase();
-        if (email == 'sergioalgmir@gmail.com' &&
-            profile.role.toLowerCase() != 'admin') {
-          _db.collection('users').doc(uid).update({'rol': 'admin'});
+        // Auto-upgrade en segundo plano si es administrador real de Firestore
+        final email = (data['email'] ?? '').toString().toLowerCase();
+        if (email == AppConfig.superUserEmail.toLowerCase()) {
+          final currentDbRole = (data['rol'] ?? '').toString().toLowerCase();
+          if (currentDbRole != 'admin') {
+            _db
+                .collection('users')
+                .doc(uid)
+                .update({'rol': 'admin'}).catchError((e) {
+              debugPrint(
+                  'Aviso: No se pudo auto-reparar el rol real en Firestore (esperado si no tiene permisos): $e');
+            });
+          }
         }
 
-        return profile;
+        return UserProfile.fromMap(data, doc.id);
       }
       return null;
     }).handleError((error) {

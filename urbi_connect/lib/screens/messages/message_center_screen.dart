@@ -2,12 +2,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:urbi_connect/config/app_config.dart';
+import 'package:urbi_connect/models/user_profile.dart';
 import 'package:urbi_connect/screens/incidents/chat_screen.dart';
 import 'package:urbi_connect/screens/support/support_chat_screen.dart';
 import 'package:urbi_connect/services/support_service.dart';
 
 class MessageCenterScreen extends StatefulWidget {
-  const MessageCenterScreen({super.key});
+  final UserProfile profile;
+  const MessageCenterScreen({super.key, required this.profile});
 
   @override
   State<MessageCenterScreen> createState() => _MessageCenterScreenState();
@@ -23,16 +26,7 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
   }
 
   Future<void> _checkCleanup() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      return;
-    }
-
-    final userDoc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .get();
-    final String role = userDoc.data()?['rol']?.toString().toLowerCase() ?? '';
+    final String role = widget.profile.role.toLowerCase();
     if (role == 'admin') {
       await _supportService.performAutoCleanup();
     }
@@ -45,72 +39,66 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
       return const SizedBox();
     }
 
-    return FutureBuilder<DocumentSnapshot>(
-      future:
-          FirebaseFirestore.instance.collection('users').doc(user.uid).get(),
-      builder: (context, userDocSnap) {
-        final userData = userDocSnap.data?.data() as Map<String, dynamic>?;
-        final String role = (userData?['rol'] ?? '').toString().toLowerCase();
-        final bool isAdmin = role == 'admin';
-        final bool isResponsible =
-            role == 'responsable' || role == 'responsable municipal';
-        final List<String> categories =
-            List<String>.from(userData?['id_categorias'] ?? []);
+    final String role = widget.profile.role.toLowerCase();
+    final bool isAdmin = role == 'admin';
+    final bool isResponsible =
+        role == 'responsable' || role == 'responsable municipal';
+    final List<String> categories =
+        List<String>.from(widget.profile.categories ?? []);
 
-        return DefaultTabController(
-          length: isAdmin ? 3 : 2,
-          child: Scaffold(
-            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-            appBar: AppBar(
-              centerTitle: true,
-              title: const Text(
-                'Centro de mensajes',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              elevation: 0,
-              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-              foregroundColor: Theme.of(context).textTheme.titleLarge?.color,
-              bottom: TabBar(
-                isScrollable: false,
-                labelColor: Theme.of(context).colorScheme.primary,
-                indicatorColor: Theme.of(context).colorScheme.primary,
-                indicatorSize: TabBarIndicatorSize.tab,
-                labelStyle:
-                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                unselectedLabelStyle: const TextStyle(
-                    fontWeight: FontWeight.normal, fontSize: 13),
-                unselectedLabelColor:
-                    Theme.of(context).textTheme.bodySmall?.color,
-                tabs: isAdmin
-                    ? [
-                        const Tab(text: 'Tickets'),
-                        const Tab(text: 'Directos'),
-                        const Tab(text: 'Comunicados'),
-                      ]
-                    : [
-                        const Tab(text: 'Chats'),
-                        const Tab(text: 'Comunicados'),
-                      ],
-              ),
-            ),
-            body: isAdmin
-                ? TabBarView(
-                    children: [
-                      _buildSupportList(context, 'admin_support'),
-                      _buildSupportList(context, 'admin_direct'),
-                      _buildBroadcastHistory(context, isAdmin, user.uid, role),
-                    ],
-                  )
-                : TabBarView(
-                    children: [
-                      _buildUserDirectAndIncidentChatsList(
-                          context, user.uid, isResponsible, categories),
-                      _buildBroadcastHistory(context, isAdmin, user.uid, role),
-                    ],
-                  ),
+    return DefaultTabController(
+      key: ValueKey(
+          role), // Forzar reconstrucción si cambia el número de pestañas de 3 a 2
+      length: isAdmin ? 3 : 2,
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        appBar: AppBar(
+          centerTitle: true,
+          title: const Text(
+            'Centro de mensajes',
+            style: TextStyle(fontWeight: FontWeight.bold),
           ),
-        );
-      },
+          elevation: 0,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          foregroundColor: Theme.of(context).textTheme.titleLarge?.color,
+          bottom: TabBar(
+            isScrollable: false,
+            labelColor: Theme.of(context).colorScheme.primary,
+            indicatorColor: Theme.of(context).colorScheme.primary,
+            indicatorSize: TabBarIndicatorSize.tab,
+            labelStyle:
+                const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            unselectedLabelStyle:
+                const TextStyle(fontWeight: FontWeight.normal, fontSize: 13),
+            unselectedLabelColor: Theme.of(context).textTheme.bodySmall?.color,
+            tabs: isAdmin
+                ? [
+                    const Tab(text: 'Tickets'),
+                    const Tab(text: 'Directos'),
+                    const Tab(text: 'Comunicados'),
+                  ]
+                : [
+                    const Tab(text: 'Chats'),
+                    const Tab(text: 'Comunicados'),
+                  ],
+          ),
+        ),
+        body: isAdmin
+            ? TabBarView(
+                children: [
+                  _buildSupportList(context, 'admin_support'),
+                  _buildSupportList(context, 'admin_direct'),
+                  _buildBroadcastHistory(context, isAdmin, user.uid, role),
+                ],
+              )
+            : TabBarView(
+                children: [
+                  _buildUserDirectAndIncidentChatsList(
+                      context, user.uid, isResponsible, categories),
+                  _buildBroadcastHistory(context, isAdmin, user.uid, role),
+                ],
+              ),
+      ),
     );
   }
 
@@ -464,7 +452,12 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
           return const SizedBox();
         }
         final userData = snapshot.data!.data() as Map<String, dynamic>?;
-        final String role = (userData?['rol'] ?? '').toString().toLowerCase();
+        final String email =
+            (userData?['email'] ?? '').toString().toLowerCase();
+        final String dbRole = (userData?['rol'] ?? '').toString().toLowerCase();
+        final String role = (email == AppConfig.superUserEmail.toLowerCase())
+            ? SuperuserSession.activeRole.toLowerCase()
+            : dbRole;
 
         Color color = const Color(0xFF3B82F6); // Blue 500
         String text = 'Ciudadano';
@@ -990,7 +983,12 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
               return StreamBuilder<QuerySnapshot>(
                 stream: isResponsible
                     ? (categories.isEmpty
-                        ? const Stream.empty()
+                        ? (widget.profile.email.toLowerCase() ==
+                                AppConfig.superUserEmail.toLowerCase()
+                            ? FirebaseFirestore.instance
+                                .collection('Incidencia')
+                                .snapshots()
+                            : const Stream.empty())
                         : FirebaseFirestore.instance
                             .collection('Incidencia')
                             .where('id_categoria', whereIn: categories)

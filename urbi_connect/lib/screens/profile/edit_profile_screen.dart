@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:urbi_connect/config/app_config.dart';
 import 'package:urbi_connect/services/auth_service.dart';
 import 'package:urbi_connect/services/database_service.dart';
 
@@ -33,6 +34,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _isLoading = false;
   bool _isInit = true;
   bool _isGoogleUser = false;
+  bool _isSuperUser = false;
 
   @override
   void didChangeDependencies() {
@@ -40,6 +42,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final user = FirebaseAuth.instance.currentUser;
       _isGoogleUser =
           user?.providerData.any((p) => p.providerId == 'google.com') ?? false;
+      _isSuperUser =
+          user?.email?.toLowerCase() == AppConfig.superUserEmail.toLowerCase();
 
       _nameController = TextEditingController();
       _surnamesController = TextEditingController();
@@ -424,12 +428,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   label: 'Correo electrónico',
                   controller: _emailController,
                   icon: Icons.email_outlined,
-                  enabled: !_isGoogleUser,
+                  enabled: !_isGoogleUser && !_isSuperUser,
                   textInputAction: TextInputAction.done,
                   onFieldSubmitted: (_) => _saveProfile(),
-                  helperText: _isGoogleUser
-                      ? 'Los usuarios de Google no pueden cambiar su email desde aquí'
-                      : null,
+                  helperText: _isSuperUser
+                      ? 'El súper usuario no puede cambiar su correo electrónico'
+                      : (_isGoogleUser
+                          ? 'Los usuarios de Google no pueden cambiar su email desde aquí'
+                          : null),
                   validator: (v) {
                     if (v!.isEmpty) return 'El email es obligatorio';
                     if (!v.contains('@')) return 'Email inválido';
@@ -462,25 +468,25 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<bool> _showDiscardDialog() async {
-    return await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Cambios sin guardar'),
-            content: const Text(
-                'Tienes cambios sin guardar. ¿Deseas descartarlos o seguir editando?'),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Seguir editando')),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Descartar',
-                    style: TextStyle(color: Colors.red)),
-              ),
-            ],
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('¿Descartar cambios?'),
+        content: const Text(
+            'Tienes cambios sin guardar. ¿Seguro que quieres salir?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
           ),
-        ) ??
-        false;
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Descartar'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
   }
 
   Widget _buildTextField({
@@ -488,25 +494,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     required TextEditingController controller,
     required IconData icon,
     TextInputAction? textInputAction,
-    Function(String)? onFieldSubmitted,
     String? Function(String?)? validator,
     bool enabled = true,
+    void Function(String)? onFieldSubmitted,
     String? helperText,
   }) {
     return TextFormField(
       controller: controller,
-      validator: validator,
-      enabled: enabled,
-      textInputAction: textInputAction,
-      onFieldSubmitted: onFieldSubmitted,
       decoration: InputDecoration(
         labelText: label,
-        helperText: helperText,
         prefixIcon: Icon(icon),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
-        filled: true,
-        fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+        helperText: helperText,
+        border: const OutlineInputBorder(),
       ),
+      textInputAction: textInputAction,
+      validator: validator,
+      enabled: enabled,
+      onFieldSubmitted: onFieldSubmitted,
     );
   }
 }

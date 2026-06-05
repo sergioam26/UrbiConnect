@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:urbi_connect/config/app_config.dart';
 import 'package:urbi_connect/models/chat_message.dart';
 import 'package:urbi_connect/services/notification_service.dart';
 
@@ -78,6 +79,16 @@ class ChatService {
 
           if (responsables.docs.isNotEmpty) {
             targetUserId = responsables.docs.first.id;
+          } else {
+            // Fallback para el súper usuario si no hay responsable específico asociado en Firestore
+            final superuserSnap = await _db
+                .collection('users')
+                .where('email', isEqualTo: AppConfig.superUserEmail)
+                .limit(1)
+                .get();
+            if (superuserSnap.docs.isNotEmpty) {
+              targetUserId = superuserSnap.docs.first.id;
+            }
           }
         } else {
           // El responsable envió el mensaje, notificar al ciudadano
