@@ -575,9 +575,16 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
       valueListenable: _broadcastFilter,
       builder: (context, activeFilter, child) {
         return StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('Notificaciones')
-              .snapshots(),
+          stream: isAdmin
+              ? FirebaseFirestore.instance
+                  .collection('Notificaciones')
+                  .snapshots()
+              : FirebaseFirestore.instance
+                  .collection('Notificaciones')
+                  .where('id_usuario', whereIn: [
+                  currentUserId,
+                  'silenciado_$currentUserId'
+                ]).snapshots(),
           builder: (context, snapshot) {
             if (snapshot.hasError) {
               return const Center(child: Text('Error al cargar comunicados'));
@@ -653,8 +660,12 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
               // Ciudadano/Responsable: ver broadcast + individuales dirigidos a él
               filteredDocs = allDocs.where((doc) {
                 final d = doc.data() as Map<String, dynamic>;
-                final bool isDirect =
-                    d['tipo'] == 'oficial' && d['id_usuario'] == currentUserId;
+                final String idUsuario = d['id_usuario'] ?? '';
+                final bool isOwner = idUsuario == currentUserId ||
+                    idUsuario == 'silenciado_$currentUserId';
+                if (!isOwner) return false;
+
+                final bool isDirect = d['tipo'] == 'oficial';
                 if (isDirect) {
                   return true;
                 }
@@ -998,22 +1009,27 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
                         .where('id_usuario', isEqualTo: currentUserId)
                         .snapshots(),
                 builder: (context, incidentSnapshot) {
+                  final bool isSuperUser = widget.profile.email.toLowerCase() ==
+                      AppConfig.superUserEmail.toLowerCase();
                   if (supportSnapshot.hasError || incidentSnapshot.hasError) {
                     return const Center(child: Text('Error al cargar chats'));
                   }
 
-                  // Solo mostramos spinner si AMBOS están cargando.
-                  // Si uno tiene datos, permitimos que se vea algo.
-                  if (supportSnapshot.connectionState ==
-                          ConnectionState.waiting &&
+                  final bool isSupportWaiting = !isSuperUser &&
+                      supportSnapshot.connectionState ==
+                          ConnectionState.waiting;
+                  final bool isIncidentWaiting =
                       incidentSnapshot.connectionState ==
-                          ConnectionState.waiting) {
+                          ConnectionState.waiting;
+
+                  // Solo mostramos spinner si los streams relevantes están cargando.
+                  if (isSupportWaiting && isIncidentWaiting) {
                     return const Center(child: CircularProgressIndicator());
                   }
 
                   // Procesar tickets de soporte (incluye directos del admin)
                   final List<Map<String, dynamic>> allChats = [];
-                  if (supportSnapshot.hasData) {
+                  if (supportSnapshot.hasData && !isSuperUser) {
                     final now = DateTime.now();
                     final twentyOneDaysAgo =
                         now.subtract(const Duration(days: 21));
@@ -1077,11 +1093,17 @@ class _MessageCenterScreenState extends State<MessageCenterScreen> {
                   }
 
                   if (allChats.isEmpty) {
-                    // Si aún está cargando uno de los streams, esperamos antes de mostrar vacío
-                    if (supportSnapshot.connectionState ==
-                            ConnectionState.waiting ||
+                    // Si aún está cargando uno de los streams relevantes, esperamos antes de mostrar vacío
+                    final bool isSupportWaiting =
+                        !(widget.profile.email.toLowerCase() ==
+                                AppConfig.superUserEmail.toLowerCase()) &&
+                            supportSnapshot.connectionState ==
+                                ConnectionState.waiting;
+                    final bool isIncidentWaiting =
                         incidentSnapshot.connectionState ==
-                            ConnectionState.waiting) {
+                            ConnectionState.waiting;
+
+                    if (isSupportWaiting || isIncidentWaiting) {
                       return const Center(child: CircularProgressIndicator());
                     }
                     return _buildEmptyState('No tienes chats activos todavía');

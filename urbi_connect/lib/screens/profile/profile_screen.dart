@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:urbi_connect/config/app_config.dart';
 import 'package:urbi_connect/models/user_profile.dart';
 import 'package:urbi_connect/screens/profile/change_password_screen.dart'
@@ -10,6 +11,7 @@ import 'package:urbi_connect/screens/profile/change_password_screen.dart'
 import 'package:urbi_connect/screens/profile/edit_profile_screen.dart';
 import 'package:urbi_connect/screens/support/support_screen.dart';
 import 'package:urbi_connect/services/auth_service.dart';
+import 'package:urbi_connect/services/notification_service.dart';
 import 'package:urbi_connect/services/theme_service.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -21,10 +23,25 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  List<String>? _localPushRoles;
+
   @override
   void initState() {
     super.initState();
     _syncEmail();
+    _localPushRoles = widget.profile.enabledPushRoles != null
+        ? List<String>.from(widget.profile.enabledPushRoles!)
+        : ['admin', 'responsable', 'ciudadano'];
+  }
+
+  @override
+  void didUpdateWidget(covariant ProfileScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.profile.enabledPushRoles != oldWidget.profile.enabledPushRoles) {
+      _localPushRoles = widget.profile.enabledPushRoles != null
+          ? List<String>.from(widget.profile.enabledPushRoles!)
+          : ['admin', 'responsable', 'ciudadano'];
+    }
   }
 
   Future<void> _syncEmail() async {
@@ -55,6 +72,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _buildInfoSection(context, user, widget.profile),
               const SizedBox(height: 12),
               _buildSettingsSection(context, authService, widget.profile),
+              if (widget.profile.email.toLowerCase() ==
+                  AppConfig.superUserEmail.toLowerCase()) ...[
+                const SizedBox(height: 12),
+                _buildSuperuserPushSettings(context, widget.profile),
+              ],
               const SizedBox(height: 32),
             ],
           ),
@@ -257,6 +279,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildSettingsSection(
       BuildContext context, AuthService authService, UserProfile? profile) {
+    if (profile == null) return const SizedBox.shrink();
     final themeService = Provider.of<ThemeService>(context);
 
     return Padding(
@@ -319,7 +342,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     );
                   },
                 ),
-                if (profile?.role.toLowerCase() != 'admin') ...[
+                if (profile?.role.toLowerCase() != 'admin' &&
+                    profile?.email.toLowerCase() !=
+                        AppConfig.superUserEmail.toLowerCase()) ...[
                   _buildDivider(context),
                   _buildActionTile(
                     context,
@@ -345,7 +370,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     'Conmutar rol activo (Súper usuario)',
                     Colors.amber[700]!,
                     () => _showSuperuserSwitcher(
-                        context, profile!.uid, profile.role),
+                        context, profile.uid, profile.role),
                   ),
                 ],
                 _buildDivider(context),
@@ -613,6 +638,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 .doc(uid)
                 .update(updates);
           }
+          await NotificationService().syncFcmTokenState();
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -683,6 +709,200 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSuperuserPushSettings(
+      BuildContext context, UserProfile profile) {
+    _localPushRoles ??= List<String>.from(
+        profile.enabledPushRoles ?? ['admin', 'responsable', 'ciudadano']);
+    final List<String> currentRoles = _localPushRoles!;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 8, bottom: 12, top: 24),
+            child: Text(
+              'NOTIFICACIONES PUSH POR ROL',
+              style: GoogleFonts.inter(
+                color: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.color
+                    ?.withValues(alpha: 0.5),
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.5,
+              ),
+            ),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                  color: Theme.of(context).colorScheme.outlineVariant),
+            ),
+            child: Column(
+              children: [
+                _buildPushRoleSwitch(
+                  context,
+                  roleKey: 'admin',
+                  label: 'Administrador',
+                  subtitle:
+                      'Mensajes de soporte y alertas globales de administración',
+                  icon: Icons.admin_panel_settings_rounded,
+                  color: Colors.blue,
+                  isSelected: currentRoles.contains('admin'),
+                  profile: profile,
+                ),
+                _buildDivider(context),
+                _buildPushRoleSwitch(
+                  context,
+                  roleKey: 'responsable',
+                  label: 'Responsable municipal',
+                  subtitle: 'Nuevas incidencias creadas de tus categorías',
+                  icon: Icons.supervised_user_circle_rounded,
+                  color: Colors.amber[700]!,
+                  isSelected: currentRoles.contains('responsable'),
+                  profile: profile,
+                ),
+                _buildDivider(context),
+                _buildPushRoleSwitch(
+                  context,
+                  roleKey: 'ciudadano',
+                  label: 'Ciudadano',
+                  subtitle:
+                      'Actualizaciones de estado sobre incidencias y respuestas',
+                  icon: Icons.person_rounded,
+                  color: Colors.green,
+                  isSelected: currentRoles.contains('ciudadano'),
+                  profile: profile,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPushRoleSwitch(
+    BuildContext context, {
+    required String roleKey,
+    required String label,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required bool isSelected,
+    required UserProfile profile,
+  }) {
+    return SwitchListTile(
+      value: isSelected,
+      activeColor: Theme.of(context).colorScheme.primary,
+      secondary: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: color, size: 20),
+      ),
+      title: Text(
+        label,
+        style: GoogleFonts.inter(
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          color: Theme.of(context).textTheme.bodyLarge?.color,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: GoogleFonts.inter(
+          fontSize: 11,
+          color: Theme.of(context).textTheme.bodySmall?.color,
+        ),
+      ),
+      onChanged: (bool value) async {
+        setState(() {
+          _localPushRoles ??= List<String>.from(profile.enabledPushRoles ??
+              ['admin', 'responsable', 'ciudadano']);
+          final List<String> variations = [];
+          if (roleKey == 'responsable') {
+            variations.addAll([
+              'responsable',
+              'responsable_municipal',
+              'responsable municipal',
+              'Responsable',
+              'Responsable Municipal',
+              'Responsable municipal',
+            ]);
+          } else if (roleKey == 'admin') {
+            variations.addAll(['admin', 'Admin', 'ADMIN']);
+          } else if (roleKey == 'ciudadano') {
+            variations.addAll(['ciudadano', 'Ciudadano', 'CIUDADANO']);
+          } else {
+            variations.add(roleKey);
+          }
+
+          if (value) {
+            for (var v in variations) {
+              if (!_localPushRoles!.contains(v)) {
+                _localPushRoles!.add(v);
+              }
+            }
+          } else {
+            for (var v in variations) {
+              _localPushRoles!.remove(v);
+            }
+          }
+        });
+
+        try {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(profile.uid)
+              .update({'enabled_push_roles': _localPushRoles});
+
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            if (_localPushRoles != null) {
+              await prefs.setStringList('enabled_push_roles', _localPushRoles!);
+            }
+          } catch (e) {
+            debugPrint(
+                'Error actualizando caché local en SharedPreferences: $e');
+          }
+
+          await NotificationService().syncFcmTokenState();
+
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content:
+                    Text('Ajuste de notificación para $label actualizado.'),
+                backgroundColor: color,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+            );
+          }
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error al actualizar notificaciones: $e'),
+                backgroundColor: Colors.red,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        }
+      },
     );
   }
 }

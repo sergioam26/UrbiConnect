@@ -125,7 +125,7 @@ class AuthService with ChangeNotifier {
         String role = 'ciudadano';
 
         // Default Admin for the project owner
-        if (email == AppConfig.superUserEmail.toLowerCase()) {
+        if (email.toLowerCase() == AppConfig.superUserEmail.toLowerCase()) {
           role = 'admin';
         }
 
@@ -223,7 +223,7 @@ class AuthService with ChangeNotifier {
               .get();
           String role = 'ciudadano';
 
-          if (email == AppConfig.superUserEmail.toLowerCase()) {
+          if (email.toLowerCase() == AppConfig.superUserEmail.toLowerCase()) {
             role = 'admin';
           }
 

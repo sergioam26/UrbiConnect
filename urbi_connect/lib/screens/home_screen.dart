@@ -62,16 +62,22 @@ class _HomeScreenState extends State<HomeScreen> {
     if (isAdmin) {
       return [
         const AdminDashboard(),
-        MessageCenterScreen(profile: profile),
-        NotificationListScreen(profile: profile),
-        ProfileScreen(profile: profile),
+        MessageCenterScreen(
+            key: ValueKey('messages_${profile.role}'), profile: profile),
+        NotificationListScreen(
+            key: ValueKey('notifications_${profile.role}'), profile: profile),
+        ProfileScreen(
+            key: ValueKey('profile_${profile.role}'), profile: profile),
       ];
     }
     return [
-      IncidentListScreen(profile: profile),
-      MessageCenterScreen(profile: profile),
-      NotificationListScreen(profile: profile),
-      ProfileScreen(profile: profile),
+      IncidentListScreen(
+          key: ValueKey('incidents_${profile.role}'), profile: profile),
+      MessageCenterScreen(
+          key: ValueKey('messages_${profile.role}'), profile: profile),
+      NotificationListScreen(
+          key: ValueKey('notifications_${profile.role}'), profile: profile),
+      ProfileScreen(key: ValueKey('profile_${profile.role}'), profile: profile),
     ];
   }
 
@@ -120,6 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
               profilePhoto: profile.profilePhoto,
               categories: profile.categories,
               pushToken: profile.pushToken,
+              enabledPushRoles: profile.enabledPushRoles,
             );
 
             final pages = _getPages(virtualProfile, isAdmin, isResponsible);
@@ -339,7 +346,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 context,
                 uid: uid,
                 roleValue: 'admin',
-                label: 'Administrador municipal',
+                label: 'Administrador',
                 icon: Icons.admin_panel_settings_rounded,
                 color: Colors.blueGrey,
                 isSelected: currentRole == 'admin',
@@ -349,7 +356,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 context,
                 uid: uid,
                 roleValue: 'responsable',
-                label: 'Responsable de servicio',
+                label: 'Responsable municipal',
                 icon: Icons.engineering_rounded,
                 color: Colors.teal,
                 isSelected: currentRole == 'responsable' ||
@@ -360,7 +367,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 context,
                 uid: uid,
                 roleValue: 'ciudadano',
-                label: 'Ciudadano general',
+                label: 'Ciudadano',
                 icon: Icons.person_rounded,
                 color: Theme.of(context).colorScheme.primary,
                 isSelected: currentRole == 'ciudadano',
@@ -403,6 +410,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 .doc(uid)
                 .update(updates);
           }
+          await NotificationService().syncFcmTokenState();
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(

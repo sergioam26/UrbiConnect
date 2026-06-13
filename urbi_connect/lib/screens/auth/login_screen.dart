@@ -393,7 +393,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           final error =
                               await authService.sendPasswordResetEmail(email);
 
-                          if (mounted) {
+                          if (context.mounted) {
                             if (error == null) {
                               Navigator.pop(context);
                               ScaffoldMessenger.of(context).showSnackBar(

@@ -17,6 +17,9 @@ class NotificationListScreen extends StatelessWidget {
 
   Future<void> _handleNotificationTap(
       BuildContext context, AppNotification notification) async {
+    // Adquirir rol del superusuario de forma automática si corresponde
+    SuperuserSession.acquireRoleFromNotification(notification);
+
     final notificationService = NotificationService();
     if (!notification.isRead) {
       await notificationService.markAsRead(notification.id);

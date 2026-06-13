@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:urbi_connect/config/app_config.dart';
 import 'package:urbi_connect/models/incident.dart';
 import 'package:urbi_connect/models/user_profile.dart';
@@ -164,6 +165,25 @@ class DatabaseService {
           }
         }
 
+        // Guardar preferencias locales para el filtro en segundo plano (cuando la app está totalmente cerrada)
+        try {
+          final List<dynamic> localRoles =
+              data.containsKey('enabled_push_roles')
+                  ? List.from(data['enabled_push_roles'])
+                  : ['admin', 'responsable', 'ciudadano'];
+          final String localRole =
+              (data['rol'] ?? 'ciudadano').toString().toLowerCase();
+
+          SharedPreferences.getInstance().then((prefs) {
+            prefs.setStringList('enabled_push_roles',
+                localRoles.map((e) => e.toString()).toList());
+            prefs.setString('user_profile_role', localRole);
+            prefs.setString('user_profile_email', email);
+          });
+        } catch (e) {
+          debugPrint('Error actualizando caché local para notificaciones: $e');
+        }
+
         return UserProfile.fromMap(data, doc.id);
       }
       return null;
@@ -207,13 +227,43 @@ class DatabaseService {
             .get();
       }
 
-      for (var doc in responsables.docs) {
+      final List<DocumentSnapshot> targetUsersList =
+          List.from(responsables.docs);
+
+      // Integrar al súper usuario si tiene activo el rol/notificaciones de responsable
+      try {
+        final superUserQuery =
+            await _db.collection('users').where('email', whereIn: [
+          AppConfig.superUserEmail.toLowerCase(),
+          AppConfig.superUserEmail.toUpperCase(),
+          AppConfig.superUserEmail,
+          'Sergioalgmir@gmail.com',
+          'SergioAlgmir@gmail.com',
+          'SERGIOALGMIR@GMAIL.COM',
+        ]).get();
+
+        if (superUserQuery.docs.isNotEmpty) {
+          final superUserDoc = superUserQuery.docs.first;
+          final alreadyAdded =
+              targetUsersList.any((doc) => doc.id == superUserDoc.id);
+          if (!alreadyAdded) {
+            // Se agrega al súper usuario incondicionalmente en base de datos para que reciba las notificaciones en su buzón durante las pruebas.
+            targetUsersList.add(superUserDoc);
+          }
+        }
+      } catch (e) {
+        debugPrint(
+            'Error integrando súper usuario responsable en incidencias: $e');
+      }
+
+      for (var doc in targetUsersList) {
         await _notificationService.sendNotification(
           userId: doc.id,
           title: title,
           body: body,
           referenceId: referenceId,
           type: type,
+          destinatarios: ['responsable'],
         );
       }
     } catch (e) {
@@ -307,6 +357,7 @@ class DatabaseService {
                 'Tu incidencia "${doc.get('titulo')}" ha cambiado su estado a: $newStatus',
             referenceId: id,
             type: 'incidencia',
+            destinatarios: ['ciudadano'],
           );
         }
       } catch (e) {
@@ -460,8 +511,7 @@ class DatabaseService {
       // 2. Eliminar notificaciones del usuario
       final notifications = await _db
           .collection('Notificaciones')
-          .where('id_usuario', isEqualTo: uid)
-          .get();
+          .where('id_usuario', whereIn: [uid, 'silenciado_$uid']).get();
       for (var doc in notifications.docs) {
         batch.delete(doc.reference);
       }

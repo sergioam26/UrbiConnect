@@ -11,6 +11,9 @@ class AppNotification {
   final String? type;
   final bool isOfficial;
   final String? imageUrl; // NUEVO: Variable para la imagen
+  final bool
+      isAdminNotification; // NUEVO: Para identificar notificaciones dirigidas a administradores
+  final List<String>? destinatarios;
 
   AppNotification({
     required this.id,
@@ -23,10 +26,18 @@ class AppNotification {
     this.type,
     this.isOfficial = false,
     this.imageUrl, // NUEVO
+    this.isAdminNotification = false, // NUEVO
+    this.destinatarios,
   });
 
   factory AppNotification.fromFirestore(DocumentSnapshot doc) {
     Map data = doc.data() as Map;
+    List<String>? destinatariosList;
+    if (data['destinatarios'] != null) {
+      destinatariosList = List<String>.from(
+        (data['destinatarios'] as List).map((e) => e.toString()),
+      );
+    }
     return AppNotification(
       id: doc.id,
       title: data['titulo'] ?? '',
@@ -40,6 +51,8 @@ class AppNotification {
       type: data['tipo'],
       isOfficial: data['es_oficial'] ?? false,
       imageUrl: data['url_imagen'], // NUEVO: Extraer la URL de la base de datos
+      isAdminNotification: data['is_admin_notification'] ?? false, // NUEVO
+      destinatarios: destinatariosList,
     );
   }
 
@@ -54,6 +67,8 @@ class AppNotification {
       'tipo': type,
       'es_oficial': isOfficial,
       'url_imagen': imageUrl, // NUEVO
+      'is_admin_notification': isAdminNotification, // NUEVO
+      if (destinatarios != null) 'destinatarios': destinatarios,
     };
   }
 }

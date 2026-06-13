@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:urbi_connect/models/incident.dart';
 import 'package:urbi_connect/services/export_service.dart';
@@ -123,7 +124,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
       await ExportService.exportIncidentsToCSV(
           incidents, categoryNames, userEmails);
-      _showSuccessMessage('Archivo CSV exportado con éxito.');
+      _showSuccessMessage(kIsWeb
+          ? 'Archivo CSV exportado con éxito.'
+          : 'Archivo CSV generado. Elige dónde guardarlo o compartirlo.');
     } catch (e) {
       if (mounted) Navigator.pop(context);
       _showErrorMessage('Error al exportar CSV: $e');
@@ -187,9 +190,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
       incidents.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-      ExportService.exportIncidentsToPDF(incidents, categoryNames, userEmails);
-      _showSuccessMessage(
-          'Reporte consolidado de incidencias abierto para impresión.');
+      await ExportService.exportIncidentsToPDF(
+          incidents, categoryNames, userEmails);
+      _showSuccessMessage(kIsWeb
+          ? 'Reporte consolidado de incidencias abierto para impresión.'
+          : 'Reporte de incidencias generado. Elige guardarlo, imprimirlo o compartirlo.');
     } catch (e) {
       if (mounted) Navigator.pop(context);
       _showErrorMessage('Error al exportar PDF: $e');
@@ -268,7 +273,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
       if (mounted) Navigator.pop(context);
 
-      ExportService.exportStatsToPDF(
+      await ExportService.exportStatsToPDF(
         citizens: citizens,
         staff: staff,
         admins: admins,
@@ -277,8 +282,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         resolved: resolved,
         categoryStats: categoryStats,
       );
-      _showSuccessMessage(
-          'Informe Estadístico abierto para visualización/impresión.');
+      _showSuccessMessage(kIsWeb
+          ? 'Informe Estadístico abierto para visualización/impresión.'
+          : 'Informe estadístico generado. Elige guardarlo, imprimirlo o compartirlo.');
     } catch (e) {
       if (mounted) Navigator.pop(context);
       _showErrorMessage('Error al exportar informe estadístico: $e');
@@ -647,6 +653,53 @@ class _IncidentStatsPie extends StatefulWidget {
 class _IncidentStatsPieState extends State<_IncidentStatsPie> {
   int touchedIndex = -1;
 
+  Widget _buildLegendItem(
+      BuildContext context, String label, int count, int total, Color color) {
+    final double percentage = total > 0 ? (count / total * 100) : 0.0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Padding(
+          padding: const EdgeInsets.only(left: 20.0),
+          child: Text(
+            '$count (${percentage.toStringAsFixed(1)}%)',
+            style: TextStyle(
+              fontSize: 11,
+              color: Theme.of(context).textTheme.bodySmall?.color,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
@@ -679,80 +732,124 @@ class _IncidentStatsPieState extends State<_IncidentStatsPie> {
           );
         }
 
+        final int total = pending + inProcess + resolved;
+
+        // Filtramos estados activos (con conteo > 0) para evitar que fl_chart
+        // descuadre los índices de los segmentos que realmente se dibujan al tocar el gráfico.
+        final List<MapEntry<String, int>> activeStates = [];
+        if (pending > 0) activeStates.add(MapEntry('pendiente', pending));
+        if (inProcess > 0) activeStates.add(MapEntry('en proceso', inProcess));
+        if (resolved > 0) activeStates.add(MapEntry('resuelta', resolved));
+
         return Card(
+          elevation: 1,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: Padding(
             padding: const EdgeInsets.all(20.0),
-            child: SizedBox(
-              height: 200,
-              child: PieChart(
-                PieChartData(
-                  pieTouchData: PieTouchData(
-                    touchCallback: (FlTouchEvent event, pieTouchResponse) {
-                      setState(() {
-                        if (!event.isInterestedForInteractions ||
-                            pieTouchResponse == null ||
-                            pieTouchResponse.touchedSection == null) {
-                          touchedIndex = -1;
-                          return;
-                        }
-                        touchedIndex = pieTouchResponse
-                            .touchedSection!.touchedSectionIndex;
-                      });
-                    },
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 5,
+                  child: SizedBox(
+                    height: 180,
+                    child: PieChart(
+                      PieChartData(
+                        pieTouchData: PieTouchData(
+                          touchCallback:
+                              (FlTouchEvent event, pieTouchResponse) {
+                            setState(() {
+                              if (!event.isInterestedForInteractions ||
+                                  pieTouchResponse == null ||
+                                  pieTouchResponse.touchedSection == null) {
+                                touchedIndex = -1;
+                                return;
+                              }
+                              touchedIndex = pieTouchResponse
+                                  .touchedSection!.touchedSectionIndex;
+                            });
+                          },
+                        ),
+                        sections: List.generate(activeStates.length, (index) {
+                          final isTouched = index == touchedIndex;
+                          final state = activeStates[index].key;
+                          final count = activeStates[index].value;
+
+                          final double radius = isTouched ? 60 : 50;
+                          final double fontSize = isTouched ? 14 : 10;
+
+                          Color color;
+                          String shortLabel;
+                          if (state == 'pendiente') {
+                            color = Colors.orange;
+                            shortLabel = 'Pend.';
+                          } else if (state == 'en proceso') {
+                            color = Theme.of(context).colorScheme.primary;
+                            shortLabel = 'Proc.';
+                          } else {
+                            color = Colors.green;
+                            shortLabel = 'Resu.';
+                          }
+
+                          return PieChartSectionData(
+                            value: count.toDouble(),
+                            color: color,
+                            title:
+                                isTouched ? '$count\n$shortLabel' : shortLabel,
+                            radius: radius,
+                            titleStyle: TextStyle(
+                              color: Colors.white,
+                              fontSize: fontSize,
+                              fontWeight: FontWeight.bold,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black.withValues(alpha: 0.5),
+                                  blurRadius: 2,
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                        centerSpaceRadius: 35,
+                        sectionsSpace: 2,
+                      ),
+                    ),
                   ),
-                  sections: [
-                    PieChartSectionData(
-                      value: pending.toDouble(),
-                      color: Colors.orange,
-                      title: touchedIndex == 0 ? '$pending\nPend.' : 'Pend.',
-                      radius: touchedIndex == 0 ? 60 : 50,
-                      titleStyle: TextStyle(
-                        color: Colors.white,
-                        fontSize: touchedIndex == 0 ? 14 : 10,
-                        fontWeight: FontWeight.bold,
-                        shadows: [
-                          Shadow(
-                              color: Colors.black.withValues(alpha: 0.5),
-                              blurRadius: 2)
-                        ],
-                      ),
-                    ),
-                    PieChartSectionData(
-                      value: inProcess.toDouble(),
-                      color: Theme.of(context).colorScheme.primary,
-                      title: touchedIndex == 1 ? '$inProcess\nProc.' : 'Proc.',
-                      radius: touchedIndex == 1 ? 60 : 50,
-                      titleStyle: TextStyle(
-                        color: Colors.white,
-                        fontSize: touchedIndex == 1 ? 14 : 10,
-                        fontWeight: FontWeight.bold,
-                        shadows: [
-                          Shadow(
-                              color: Colors.black.withValues(alpha: 0.5),
-                              blurRadius: 2)
-                        ],
-                      ),
-                    ),
-                    PieChartSectionData(
-                      value: resolved.toDouble(),
-                      color: Colors.green,
-                      title: touchedIndex == 2 ? '$resolved\nResu.' : 'Resu.',
-                      radius: touchedIndex == 2 ? 60 : 50,
-                      titleStyle: TextStyle(
-                        color: Colors.white,
-                        fontSize: touchedIndex == 2 ? 14 : 10,
-                        fontWeight: FontWeight.bold,
-                        shadows: [
-                          Shadow(
-                              color: Colors.black.withValues(alpha: 0.5),
-                              blurRadius: 2)
-                        ],
-                      ),
-                    ),
-                  ],
-                  centerSpaceRadius: 40,
                 ),
-              ),
+                const SizedBox(width: 16),
+                Expanded(
+                  flex: 4,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLegendItem(
+                        context,
+                        'Pendientes',
+                        pending,
+                        total,
+                        Colors.orange,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildLegendItem(
+                        context,
+                        'En proceso',
+                        inProcess,
+                        total,
+                        Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildLegendItem(
+                        context,
+                        'Resueltas',
+                        resolved,
+                        total,
+                        Colors.green,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         );

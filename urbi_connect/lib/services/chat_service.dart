@@ -47,12 +47,15 @@ class ChatService {
         final citizenId = incidentDoc.get('id_usuario');
         final categoryId = incidentDoc.get('id_categoria');
 
-        String targetUserId = '';
+        final Set<String> targetUserIds = {};
+        List<String> destinatariosList = ['ciudadano'];
 
         if (senderId == citizenId) {
           // El ciudadano envió el mensaje, notificar al responsable
+          destinatariosList = ['responsable'];
+
           // Buscamos responsables que tengan esta categoría (probamos ambos campos por compatibilidad)
-          var responsables = await _db
+          final responsablesPlural = await _db
               .collection('users')
               .where('rol', whereIn: [
                 'responsable',
@@ -63,39 +66,76 @@ class ChatService {
               .where('id_categorias', arrayContains: categoryId)
               .get();
 
-          if (responsables.docs.isEmpty) {
-            // Intentar con el campo singular si el plural falla
-            responsables = await _db
-                .collection('users')
-                .where('rol', whereIn: [
-                  'responsable',
-                  'responsable municipal',
-                  'Responsable',
-                  'Responsable Municipal'
-                ])
-                .where('id_categoria', isEqualTo: categoryId)
-                .get();
+          for (var doc in responsablesPlural.docs) {
+            targetUserIds.add(doc.id);
           }
 
-          if (responsables.docs.isNotEmpty) {
-            targetUserId = responsables.docs.first.id;
-          } else {
-            // Fallback para el súper usuario si no hay responsable específico asociado en Firestore
+          final responsablesSingular = await _db
+              .collection('users')
+              .where('rol', whereIn: [
+                'responsable',
+                'responsable municipal',
+                'Responsable',
+                'Responsable Municipal'
+              ])
+              .where('id_categoria', isEqualTo: categoryId)
+              .get();
+
+          for (var doc in responsablesSingular.docs) {
+            targetUserIds.add(doc.id);
+          }
+
+          // Integrar al súper usuario si tiene activo el rol/notificaciones de responsable
+          try {
+            final superUserQuery =
+                await _db.collection('users').where('email', whereIn: [
+              AppConfig.superUserEmail.toLowerCase(),
+              AppConfig.superUserEmail.toUpperCase(),
+              AppConfig.superUserEmail,
+              'Sergioalgmir@gmail.com',
+              'SergioAlgmir@gmail.com',
+              'SERGIOALGMIR@GMAIL.COM',
+            ]).get();
+
+            if (superUserQuery.docs.isNotEmpty) {
+              final superUserDoc = superUserQuery.docs.first;
+              if (!targetUserIds.contains(superUserDoc.id)) {
+                // Se agrega al súper usuario incondicionalmente en base de datos para que reciba las notificaciones en su buzón durante las pruebas.
+                targetUserIds.add(superUserDoc.id);
+              }
+            }
+          } catch (e) {
+            debugPrint(
+                'Error integrando súper usuario responsable en chat: $e');
+          }
+
+          // Fallback final por si no se encontrara a nadie
+          if (targetUserIds.isEmpty) {
             final superuserSnap = await _db
                 .collection('users')
-                .where('email', isEqualTo: AppConfig.superUserEmail)
+                .where('email', whereIn: [
+                  AppConfig.superUserEmail.toLowerCase(),
+                  AppConfig.superUserEmail.toUpperCase(),
+                  AppConfig.superUserEmail,
+                  'Sergioalgmir@gmail.com',
+                  'SergioAlgmir@gmail.com',
+                  'SERGIOALGMIR@GMAIL.COM',
+                ])
                 .limit(1)
                 .get();
             if (superuserSnap.docs.isNotEmpty) {
-              targetUserId = superuserSnap.docs.first.id;
+              targetUserIds.add(superuserSnap.docs.first.id);
             }
           }
         } else {
           // El responsable envió el mensaje, notificar al ciudadano
-          targetUserId = citizenId;
+          if (citizenId.isNotEmpty) {
+            targetUserIds.add(citizenId);
+          }
+          destinatariosList = ['ciudadano'];
         }
 
-        if (targetUserId.isNotEmpty) {
+        for (var targetUserId in targetUserIds) {
           await _notificationService.sendNotification(
             userId: targetUserId,
             title: 'Nuevo mensaje en chat',
@@ -104,6 +144,7 @@ class ChatService {
                 : (text.length > 50 ? '${text.substring(0, 47)}...' : text),
             referenceId: incidentId,
             type: 'chat',
+            destinatarios: destinatariosList,
           );
         }
       }

@@ -106,6 +106,7 @@ class SupportService {
           body: body,
           referenceId: id,
           type: 'soporte',
+          isAdminNotification: true,
         );
       }
     } catch (e) {
@@ -200,6 +201,7 @@ class SupportService {
             body: 'Invitado $name $surname ha enviado un ticket: $message',
             referenceId: docRef.id,
             type: 'soporte',
+            isAdminNotification: true,
           );
         }
       } catch (e) {
@@ -369,6 +371,7 @@ class SupportService {
             body: imageUrl != null ? '📷 Foto enviada' : text,
             referenceId: ticketId,
             type: 'chat_soporte',
+            isAdminNotification: !isSenderAdmin,
           );
         }
       } catch (e) {
