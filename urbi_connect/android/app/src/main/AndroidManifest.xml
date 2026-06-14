@@ -23,7 +23,7 @@
         </activity>
 
         <!-- AÑADE ESTO AQUÍ PARA GOOGLE MAPS -->
-        <meta-data android:name="com.google.android.geo.API_KEY" android:value="AIzaSyDQcXzje_ac4nrb2W5J-k2fep5_jXRIDfs"/>
+        <meta-data android:name="com.google.android.geo.API_KEY" android:value="${MAPS_API_KEY}"/>
 
         <meta-data android:name="flutterEmbedding" android:value="2" />
         <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="high_importance_channel" />
