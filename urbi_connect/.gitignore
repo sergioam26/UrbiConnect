@@ -1,39 +1,65 @@
-# Archivos de compilación de Flutter
-build/
+# ==========================================
+# 🔒 ARCHIVOS DE SEGURIDAD (URBICONNECT)
+# ==========================================
+# Configuración nativa de Firebase
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+
+# Archivo de FlutterFire con las API Keys expuestas
+lib/firebase_options.dart
+
+# Archivos de variables de entorno (donde debes guardar la clave de Google Maps)
+.env
+*.env
+
+# Archivos de firma y certificados de Android
+android/key.properties
+android/*.jks
+android/*.keystore
+
+# ==========================================
+# 📱 FLUTTER Y DART
+# ==========================================
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
 .dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
 .packages
 .pub-cache/
 .pub/
-android/app/debug/
-android/app/profile/
-android/app/release/
+/build/
 
-# Archivos de configuración sensibles (API Keys y Firebase)
-# Se recomienda no subirlos si el repositorio es público
-**/google-services.json
-**/GoogleService-Info.plist
-**/local.properties
-**/key.properties
-**/*.keystore
-**/*.jks
-.env
-.env*
-!.env.example
+# Symbolication related
+app.*.symbols
 
-# Archivos de configuración de editores
-.vscode/
-.idea/
+# Obfuscation related
+app.*.map.json
+
+# ==========================================
+# 💻 ENTORNOS DE DESARROLLO (IDE)
+# ==========================================
+# IntelliJ / Android Studio
 *.iml
+*.ipr
 *.iws
-.project
-.settings/
-.classpath
+.idea/
 
-# Archivos del sistema
+# VS Code
+.vscode/
+
+# Mac / Apple
 .DS_Store
-Thumbs.db
 
-# Logs y temporales
+# ==========================================
+# 🛠️ SISTEMA Y OTROS
+# ==========================================
+*.class
 *.log
-*.temp
-*.tmp
+*.pyc
+*.swp
+.atom/
+.buildlog/
+.history
+.svn/
