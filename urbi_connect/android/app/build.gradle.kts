@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("com.google.gms.google-services")
@@ -5,13 +8,20 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// --- BLOQUE PARA LEER local.properties ---
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localProperties.load(FileInputStream(localPropertiesFile))
+}
+// -----------------------------------------
+
 android {
     namespace = "com.example.urbi_connect"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        // Este suele llevar 'is' en Kotlin DSL
         isCoreLibraryDesugaringEnabled = true
         
         sourceCompatibility = JavaVersion.VERSION_11
@@ -29,8 +39,10 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         
-        // --- CAMBIO: Prueba sin el 'is' delante ---
         multiDexEnabled = true
+        
+        // INYECCIÓN DE LA CLAVE DE FORMA SEGURA
+        manifestPlaceholders["MAPS_API_KEY"] = localProperties.getProperty("MAPS_API_KEY")?.toString() ?: ""
     }
 
     buildTypes {
@@ -45,6 +57,5 @@ flutter {
 }
 
 dependencies {
-    // Asegúrate de que esta línea use paréntesis y comillas dobles
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.3")
 }
