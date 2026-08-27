@@ -1,5 +1,5 @@
 # ==========================================
-# 🔒 ARCHIVOS DE SEGURIDAD (URBICONNECT)
+# 🔒 ARCHIVOS DE SEGURIDAD Y CREDENCIALES
 # ==========================================
 # Configuración nativa de Firebase
 android/app/google-services.json
@@ -8,21 +8,21 @@ ios/Runner/GoogleService-Info.plist
 # Archivo de FlutterFire con las API Keys expuestas
 lib/firebase_options.dart
 
-# Archivos de variables de entorno (donde debes guardar la clave de Google Maps)
+# Archivos de variables de entorno (claves de Google Maps, etc.)
 .env
 *.env
 
-# Archivos de firma y certificados de Android
+# Certificados de firma y claves de Android / iOS
 android/key.properties
 android/*.jks
 android/*.keystore
+ios/*.p8
+ios/*.p12
 
 # ==========================================
-# 📱 FLUTTER Y DART
+# 📱 FLUTTER Y DART (BUILD & CACHE)
 # ==========================================
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
+**/bin/cache/
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
@@ -31,10 +31,8 @@ android/*.keystore
 .pub/
 /build/
 
-# Symbolication related
+# Símbolos y ofuscación
 app.*.symbols
-
-# Obfuscation related
 app.*.map.json
 
 # ==========================================
@@ -48,13 +46,23 @@ app.*.map.json
 
 # VS Code
 .vscode/
+*.code-workspace
 
-# Mac / Apple
+# ==========================================
+# 🍎 SISTEMA OPERATIVO Y OTROS
+# ==========================================
+# macOS
 .DS_Store
+.DS_Store?
+._*
 
-# ==========================================
-# 🛠️ SISTEMA Y OTROS
-# ==========================================
+# Windows / Linux
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+*~
+
+# Archivos temporales o de compilación genéricos
 *.class
 *.log
 *.pyc

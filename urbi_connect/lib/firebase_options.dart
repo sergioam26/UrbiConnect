@@ -57,19 +57,20 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyC6nNu49PpYBRjdOhloySRH2DlMwrsfn_o',
+    apiKey: 'AIzaSyB1k6EMm9Gz8IV7xU9N4IYTnLm6XUGl-Qw',
     appId: '1:828754552495:android:67c45e362579ba9345d65a',
     messagingSenderId: '828754552495',
     projectId: 'urbiconnect-a6849',
     storageBucket: 'urbiconnect-a6849.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBt983BLDzjlOxgqnb32MQxZM3YTOIG39k',
+    apiKey: 'AIzaSyANybUGNhdN4Qw0p6QlPKcaT5UKsrPb8is',
     appId: '1:828754552495:ios:b8ae856ce922e36045d65a',
     messagingSenderId: '828754552495',
     projectId: 'urbiconnect-a6849',
     storageBucket: 'urbiconnect-a6849.firebasestorage.app',
+    androidClientId: '828754552495-to6s3je8r1hcr63lttroesq6ut85qer0.apps.googleusercontent.com',
+    iosClientId: '828754552495-c0380399f9peevg5mhbsvdvfus1etvg2.apps.googleusercontent.com',
     iosBundleId: 'com.example.urbiConnect',
   );
 }
