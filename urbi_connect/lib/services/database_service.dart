@@ -523,7 +523,7 @@ class DatabaseService {
           .get();
 
       for (var doc in incidences.docs) {
-        final incidentData = doc.data() as Map<String, dynamic>;
+        final incidentData = doc.data();
 
         // 3.1 Eliminar foto principal de la incidencia
         final String? mainFotoUrl = incidentData['foto_url'];

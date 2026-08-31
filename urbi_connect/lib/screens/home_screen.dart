@@ -147,7 +147,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 actions: [
                   if (user.email?.toLowerCase() ==
                           AppConfig.superUserEmail.toLowerCase() ||
-                      profile?.email.toLowerCase() ==
+                      profile.email.toLowerCase() ==
                           AppConfig.superUserEmail.toLowerCase())
                     IconButton(
                       icon: const Icon(Icons.supervised_user_circle_rounded,

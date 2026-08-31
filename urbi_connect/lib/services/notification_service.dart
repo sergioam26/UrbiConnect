@@ -921,30 +921,41 @@ class NotificationService {
 
     if (shouldSendPush) {
       // Legacy FCM target specifier (extremely important if they call legacy FCM relay)
-      if (targetUserFcmToken != null)
+      if (targetUserFcmToken != null) {
         notificationDoc['to'] = targetUserFcmToken;
+      }
 
       // Embedded FCM destination tokens for simple/direct Cloud Functions or Extensions triggers
-      if (targetUserFcmToken != null)
+      if (targetUserFcmToken != null) {
         notificationDoc['fcm_token'] = targetUserFcmToken;
-      if (targetUserTokenPush != null)
+      }
+      if (targetUserTokenPush != null) {
         notificationDoc['token_push'] = targetUserTokenPush;
-      if (targetUserFcmTokenBackup != null)
+      }
+      if (targetUserFcmTokenBackup != null) {
         notificationDoc['fcm_token_backup'] = targetUserFcmTokenBackup;
-      if (targetUserTokenPushBackup != null)
+      }
+      if (targetUserTokenPushBackup != null) {
         notificationDoc['token_push_backup'] = targetUserTokenPushBackup;
-      if (targetUserFcmTokenCamel != null)
+      }
+      if (targetUserFcmTokenCamel != null) {
         notificationDoc['fcmToken'] = targetUserFcmTokenCamel;
-      if (targetUserPushTokenCamel != null)
+      }
+      if (targetUserPushTokenCamel != null) {
         notificationDoc['pushToken'] = targetUserPushTokenCamel;
-      if (targetUserDeviceTokenCamel != null)
+      }
+      if (targetUserDeviceTokenCamel != null) {
         notificationDoc['deviceToken'] = targetUserDeviceTokenCamel;
-      if (targetUserFcmTokensList != null)
+      }
+      if (targetUserFcmTokensList != null) {
         notificationDoc['fcm_tokens'] = targetUserFcmTokensList;
-      if (targetUserFcmToken != null)
+      }
+      if (targetUserFcmToken != null) {
         notificationDoc['token'] = targetUserFcmToken;
-      if (targetUserFcmTokensList != null)
+      }
+      if (targetUserFcmTokensList != null) {
         notificationDoc['tokens'] = targetUserFcmTokensList;
+      }
 
       // Nested structures for direct/transparent FCM pass-through relays (super tolerant redundancy)
       notificationDoc['notification'] = {
@@ -1195,28 +1206,39 @@ class NotificationService {
 
         if (userShouldSendPush) {
           // Embedded FCM destination tokens for simple/direct Cloud Functions or Extensions triggers
-          if (targetUserFcmToken != null)
+          if (targetUserFcmToken != null) {
             notificationDoc['fcm_token'] = targetUserFcmToken;
-          if (targetUserTokenPush != null)
+          }
+          if (targetUserTokenPush != null) {
             notificationDoc['token_push'] = targetUserTokenPush;
-          if (targetUserFcmTokenBackup != null)
+          }
+          if (targetUserFcmTokenBackup != null) {
             notificationDoc['fcm_token_backup'] = targetUserFcmTokenBackup;
-          if (targetUserTokenPushBackup != null)
+          }
+          if (targetUserTokenPushBackup != null) {
             notificationDoc['token_push_backup'] = targetUserTokenPushBackup;
-          if (targetUserFcmTokenCamel != null)
+          }
+          if (targetUserFcmTokenCamel != null) {
             notificationDoc['fcmToken'] = targetUserFcmTokenCamel;
-          if (targetUserPushTokenCamel != null)
+          }
+          if (targetUserPushTokenCamel != null) {
             notificationDoc['pushToken'] = targetUserPushTokenCamel;
-          if (targetUserDeviceTokenCamel != null)
+          }
+          if (targetUserDeviceTokenCamel != null) {
             notificationDoc['deviceToken'] = targetUserDeviceTokenCamel;
-          if (targetUserFcmTokensList != null)
+          }
+          if (targetUserFcmTokensList != null) {
             notificationDoc['fcm_tokens'] = targetUserFcmTokensList;
-          if (targetUserFcmToken != null)
+          }
+          if (targetUserFcmToken != null) {
             notificationDoc['token'] = targetUserFcmToken;
-          if (targetUserFcmTokensList != null)
+          }
+          if (targetUserFcmTokensList != null) {
             notificationDoc['tokens'] = targetUserFcmTokensList;
-          if (targetUserFcmToken != null)
+          }
+          if (targetUserFcmToken != null) {
             notificationDoc['to'] = targetUserFcmToken;
+          }
 
           // Nested structures for direct/transparent FCM pass-through relays (super tolerant redundancy)
           notificationDoc['notification'] = {

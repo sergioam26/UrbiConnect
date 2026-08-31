@@ -336,8 +336,9 @@ class _IncidentFormScreenState extends State<IncidentFormScreen> {
             final postcode = addrMap['postcode'] ?? '';
 
             List<String> parts = [];
-            if (street.isNotEmpty)
+            if (street.isNotEmpty) {
               parts.add(houseNum.isNotEmpty ? '$street, $houseNum' : street);
+            }
             if (city.isNotEmpty) parts.add(city);
             if (postcode.isNotEmpty) parts.add(postcode);
             addr = parts.join(', ');
@@ -471,413 +472,472 @@ class _IncidentFormScreenState extends State<IncidentFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Nueva incidencia')),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (_firestoreCategories.isEmpty)
-                      const LinearProgressIndicator()
-                    else
-                      DropdownButtonFormField<String>(
-                        initialValue: _selectedCategoryId,
-                        items: _firestoreCategories
-                            .map((cat) => DropdownMenuItem(
-                                  value: cat['id'],
-                                  child: Text(cat['nombre']!,
-                                      style: const TextStyle(fontSize: 12)),
-                                ))
-                            .toList(),
-                        onChanged: (value) =>
-                            setState(() => _selectedCategoryId = value),
-                        decoration: const InputDecoration(
-                          labelText: 'Categoría',
-                          border: OutlineInputBorder(),
-                        ),
-                        isExpanded: true,
-                      ),
-                    if (_selectedCategoryId != null) ...[
-                      const SizedBox(height: 8),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Text(
-                          _firestoreCategories.firstWhere((c) =>
-                                  c['id'] ==
-                                  _selectedCategoryId)['descripcion'] ??
-                              '',
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Nueva incidencia')),
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            border: Border(
+              top: BorderSide(
+                color: Theme.of(context).dividerColor.withValues(alpha: 0.2),
+                width: 1,
+              ),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                offset: const Offset(0, -2),
+                blurRadius: 6,
+              ),
+            ],
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+              child: SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _submitForm,
+                  style: ElevatedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Text(
+                          'Enviar incidencia',
                           style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                              fontStyle: FontStyle.italic),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _titleController,
-                      decoration: const InputDecoration(
-                        labelText: 'Título de la incidencia',
-                        border: OutlineInputBorder(),
-                        counterText: '',
-                      ),
-                      maxLength: 100,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Por favor, introduce un título';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _descriptionController,
-                      decoration: const InputDecoration(
-                        labelText: 'Descripción',
-                        border: OutlineInputBorder(),
-                        alignLabelWithHint: true,
-                      ),
-                      maxLines: 4,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Por favor, describe el problema';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    TypeAheadField<Map<String, dynamic>>(
-                      controller: _addressController,
-                      builder: (context, controller, focusNode) {
-                        return TextFormField(
-                          controller: controller,
-                          focusNode: focusNode,
-                          decoration: InputDecoration(
-                            labelText: 'Dirección (Manual o captura GPS)',
-                            hintText: 'Ej: Calle Real, 5',
-                            border: const OutlineInputBorder(),
-                            prefixIcon: const Icon(Icons.map_outlined),
-                            suffixIcon: IconButton(
-                              icon: const Icon(Icons.my_location),
-                              onPressed: _getCurrentLocation,
-                              tooltip: 'Usar mi ubicación actual',
-                            ),
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
                           ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Por favor, introduce una dirección o usa el GPS';
-                            }
-                            return null;
-                          },
-                        );
-                      },
-                      suggestionsCallback: (pattern) async {
-                        if (pattern.length < 2) return [];
-                        try {
-                          String urlStr =
-                              'https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(pattern)}&format=json&limit=10&addressdetails=1&countrycodes=es&accept-language=es';
-
-                          // Si tenemos ubicación previa, sesgar resultados hacia esa zona
-                          if (_currentPosition != null) {
-                            final double lat = _currentPosition!.latitude;
-                            final double lon = _currentPosition!.longitude;
-                            // Crear un "viewbox" aproximado de ~5km alrededor
-                            const double delta = 0.05;
-                            urlStr +=
-                                '&viewbox=${lon - delta},${lat + delta},${lon + delta},${lat - delta}&bounded=0';
-                          }
-
-                          final url = Uri.parse(urlStr);
-                          final response = await http.get(url, headers: {
-                            'User-Agent': 'UrbiConnect_App_v1_Sergio'
-                          });
-                          if (response.statusCode == 200) {
-                            final List data = json.decode(response.body);
-                            // Filtrar resultados muy genéricos o poco útiles si hay otros mejores
-                            final filtered = data.where((item) {
-                              final type = item['type'] ?? '';
-                              final cls = item['class'] ?? '';
-                              // Excluir tipos administrativos muy amplios si no son lo que se busca
-                              if (cls == 'boundary' && type == 'administrative')
-                                return false;
-                              return true;
-                            }).toList();
-                            return (filtered.isNotEmpty ? filtered : data)
-                                .cast<Map<String, dynamic>>();
-                          }
-                        } catch (e) {
-                          debugPrint("Suggestion error: $e");
-                        }
-                        return [];
-                      },
-                      itemBuilder: (context, suggestion) {
-                        final addrMap =
-                            suggestion['address'] as Map<String, dynamic>?;
-                        String title = '';
-                        if (addrMap != null) {
-                          final street = addrMap['road'] ??
-                              addrMap['pedestrian'] ??
-                              addrMap['cycleway'] ??
-                              '';
-                          final houseNum = addrMap['house_number'] ?? '';
-                          title = street;
-                          if (houseNum.isNotEmpty) title += ' $houseNum';
-                          if (title.isEmpty)
-                            title = suggestion['display_name'] ?? '';
-                        } else {
-                          title = suggestion['display_name'] ?? '';
-                        }
-
-                        return ListTile(
-                          leading:
-                              const Icon(Icons.location_on, color: Colors.blue),
-                          title: Text(title,
-                              maxLines: 1, overflow: TextOverflow.ellipsis),
-                          subtitle: Text(suggestion['display_name'] ?? '',
-                              style: const TextStyle(fontSize: 11),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis),
-                        );
-                      },
-                      onSelected: (suggestion) {
-                        final addrMap =
-                            suggestion['address'] as Map<String, dynamic>?;
-                        String cleanAddr = '';
-                        if (addrMap != null) {
-                          final street = addrMap['road'] ??
-                              addrMap['pedestrian'] ??
-                              addrMap['cycleway'] ??
-                              '';
-                          final houseNum = addrMap['house_number'] ?? '';
-                          final city = addrMap['city'] ??
-                              addrMap['town'] ??
-                              addrMap['village'] ??
-                              '';
-                          final postcode = addrMap['postcode'] ?? '';
-
-                          List<String> parts = [];
-                          if (street.isNotEmpty)
-                            parts.add(houseNum.isNotEmpty
-                                ? '$street, $houseNum'
-                                : street);
-                          if (city.isNotEmpty) parts.add(city);
-                          if (postcode.isNotEmpty) parts.add(postcode);
-                          cleanAddr = parts.join(', ');
-                        }
-
-                        if (cleanAddr.isEmpty) {
-                          cleanAddr = suggestion['display_name'] ?? '';
-                        }
-
-                        _addressController.text = cleanAddr;
-                        setState(() {
-                          _currentPosition = Position(
-                            latitude: double.parse(suggestion['lat']),
-                            longitude: double.parse(suggestion['lon']),
-                            timestamp: DateTime.now(),
-                            accuracy: 0,
-                            altitude: 0,
-                            heading: 0,
-                            speed: 0,
-                            speedAccuracy: 0,
-                            altitudeAccuracy: 0,
-                            headingAccuracy: 0,
-                          );
-                        });
-                      },
-                      emptyBuilder: (context) => const Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: Text('No se encontraron direcciones'),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Evidencias gráficas (mín. 1):',
-                                style: TextStyle(fontWeight: FontWeight.bold)),
-                            if (_imageFiles.isEmpty && _isLoading == false)
-                              const Text(
-                                'Obligatorio *',
-                                style: TextStyle(
-                                    color: Colors.red,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold),
-                              ),
-                          ],
                         ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 32.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (_firestoreCategories.isEmpty)
+                        const LinearProgressIndicator()
+                      else
+                        DropdownButtonFormField<String>(
+                          initialValue: _selectedCategoryId,
+                          items: _firestoreCategories
+                              .map((cat) => DropdownMenuItem(
+                                    value: cat['id'],
+                                    child: Text(cat['nombre']!,
+                                        style: const TextStyle(fontSize: 12)),
+                                  ))
+                              .toList(),
+                          onChanged: (value) =>
+                              setState(() => _selectedCategoryId = value),
+                          decoration: const InputDecoration(
+                            labelText: 'Categoría',
+                            border: OutlineInputBorder(),
+                          ),
+                          isExpanded: true,
+                        ),
+                      if (_selectedCategoryId != null) ...[
                         const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: _imageFiles.isEmpty
-                                  ? Colors.red.withValues(alpha: 0.3)
-                                  : Colors.transparent,
-                              width: 2,
-                            ),
-                          ),
-                          child: SizedBox(
-                            height: 100,
-                            child: ListView.builder(
-                              scrollDirection: Axis.horizontal,
-                              itemCount: _imageFiles.length + 1,
-                              itemBuilder: (context, index) {
-                                if (index == _imageFiles.length) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(right: 8.0),
-                                    child: GestureDetector(
-                                      onTap: () =>
-                                          _showImageSourceActionSheet(context),
-                                      child: Container(
-                                        width: 100,
-                                        decoration: BoxDecoration(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .surfaceContainerHighest,
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                          border: Border.all(
-                                              color: Theme.of(context)
-                                                  .dividerColor),
-                                        ),
-                                        child: Icon(Icons.add_a_photo_outlined,
-                                            color: Theme.of(context)
-                                                .textTheme
-                                                .bodySmall
-                                                ?.color),
-                                      ),
-                                    ),
-                                  );
-                                }
-                                return Padding(
-                                  padding: const EdgeInsets.only(right: 8.0),
-                                  child: Stack(
-                                    children: [
-                                      Container(
-                                        width: 100,
-                                        decoration: BoxDecoration(
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                          image: DecorationImage(
-                                            image: kIsWeb
-                                                ? MemoryImage(_webImages[index])
-                                                : FileImage(File(
-                                                        _imageFiles[index]
-                                                            .path))
-                                                    as ImageProvider,
-                                            fit: BoxFit.cover,
-                                          ),
-                                        ),
-                                      ),
-                                      Positioned(
-                                        top: 4,
-                                        right: 4,
-                                        child: GestureDetector(
-                                          onTap: () => _removeImage(index),
-                                          child: Container(
-                                            padding: const EdgeInsets.all(2),
-                                            decoration: const BoxDecoration(
-                                                color: Colors.red,
-                                                shape: BoxShape.circle),
-                                            child: const Icon(Icons.close,
-                                                size: 16, color: Colors.white),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Text(
+                            _firestoreCategories.firstWhere((c) =>
+                                    c['id'] ==
+                                    _selectedCategoryId)['descripcion'] ??
+                                '',
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                                fontStyle: FontStyle.italic),
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 24),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Ubicación del incidente:',
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 8),
-                        GestureDetector(
-                          onTap: _getCurrentLocation,
-                          child: Container(
-                            height: 80,
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              color: _currentPosition != null
-                                  ? Colors.green.withValues(alpha: 0.1)
-                                  : Theme.of(context)
-                                      .colorScheme
-                                      .surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                  color: _currentPosition != null
-                                      ? Colors.green
-                                      : Theme.of(context).dividerColor),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _titleController,
+                        decoration: const InputDecoration(
+                          labelText: 'Título de la incidencia',
+                          border: OutlineInputBorder(),
+                          counterText: '',
+                        ),
+                        maxLength: 100,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Por favor, introduce un título';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _descriptionController,
+                        decoration: const InputDecoration(
+                          labelText: 'Descripción',
+                          border: OutlineInputBorder(),
+                          alignLabelWithHint: true,
+                        ),
+                        maxLines: 4,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Por favor, describe el problema';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TypeAheadField<Map<String, dynamic>>(
+                        controller: _addressController,
+                        builder: (context, controller, focusNode) {
+                          return TextFormField(
+                            controller: controller,
+                            focusNode: focusNode,
+                            decoration: InputDecoration(
+                              labelText: 'Dirección (Manual o captura GPS)',
+                              hintText: 'Ej: Calle Real, 5',
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.map_outlined),
+                              suffixIcon: IconButton(
+                                icon: const Icon(Icons.my_location),
+                                onPressed: _getCurrentLocation,
+                                tooltip: 'Usar mi ubicación actual',
+                              ),
                             ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  _currentPosition != null
-                                      ? Icons.location_on
-                                      : Icons.location_off,
-                                  color: _currentPosition != null
-                                      ? Colors.green
-                                      : Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.color,
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  _currentPosition != null
-                                      ? 'Ubicación capturada correctamente'
-                                      : 'Pulsa para capturar ubicación GPS',
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Por favor, introduce una dirección o usa el GPS';
+                              }
+                              return null;
+                            },
+                          );
+                        },
+                        suggestionsCallback: (pattern) async {
+                          if (pattern.length < 2) return [];
+                          try {
+                            String urlStr =
+                                'https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(pattern)}&format=json&limit=10&addressdetails=1&countrycodes=es&accept-language=es';
+
+                            // Si tenemos ubicación previa, sesgar resultados hacia esa zona
+                            if (_currentPosition != null) {
+                              final double lat = _currentPosition!.latitude;
+                              final double lon = _currentPosition!.longitude;
+                              // Crear un "viewbox" aproximado de ~5km alrededor
+                              const double delta = 0.05;
+                              urlStr +=
+                                  '&viewbox=${lon - delta},${lat + delta},${lon + delta},${lat - delta}&bounded=0';
+                            }
+
+                            final url = Uri.parse(urlStr);
+                            final response = await http.get(url, headers: {
+                              'User-Agent': 'UrbiConnect_App_v1_Sergio'
+                            });
+                            if (response.statusCode == 200) {
+                              final List data = json.decode(response.body);
+                              // Filtrar resultados muy genéricos o poco útiles si hay otros mejores
+                              final filtered = data.where((item) {
+                                final type = item['type'] ?? '';
+                                final cls = item['class'] ?? '';
+                                // Excluir tipos administrativos muy amplios si no son lo que se busca
+                                if (cls == 'boundary' &&
+                                    type == 'administrative') {
+                                  return false;
+                                }
+                                return true;
+                              }).toList();
+                              return (filtered.isNotEmpty ? filtered : data)
+                                  .cast<Map<String, dynamic>>();
+                            }
+                          } catch (e) {
+                            debugPrint("Suggestion error: $e");
+                          }
+                          return [];
+                        },
+                        itemBuilder: (context, suggestion) {
+                          final addrMap =
+                              suggestion['address'] as Map<String, dynamic>?;
+                          String title = '';
+                          if (addrMap != null) {
+                            final street = addrMap['road'] ??
+                                addrMap['pedestrian'] ??
+                                addrMap['cycleway'] ??
+                                '';
+                            final houseNum = addrMap['house_number'] ?? '';
+                            title = street;
+                            if (houseNum.isNotEmpty) title += ' $houseNum';
+                            if (title.isEmpty) {
+                              title = suggestion['display_name'] ?? '';
+                            }
+                          } else {
+                            title = suggestion['display_name'] ?? '';
+                          }
+
+                          return ListTile(
+                            leading: const Icon(Icons.location_on,
+                                color: Colors.blue),
+                            title: Text(title,
+                                maxLines: 1, overflow: TextOverflow.ellipsis),
+                            subtitle: Text(suggestion['display_name'] ?? '',
+                                style: const TextStyle(fontSize: 11),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis),
+                          );
+                        },
+                        onSelected: (suggestion) {
+                          final addrMap =
+                              suggestion['address'] as Map<String, dynamic>?;
+                          String cleanAddr = '';
+                          if (addrMap != null) {
+                            final street = addrMap['road'] ??
+                                addrMap['pedestrian'] ??
+                                addrMap['cycleway'] ??
+                                '';
+                            final houseNum = addrMap['house_number'] ?? '';
+                            final city = addrMap['city'] ??
+                                addrMap['town'] ??
+                                addrMap['village'] ??
+                                '';
+                            final postcode = addrMap['postcode'] ?? '';
+
+                            List<String> parts = [];
+                            if (street.isNotEmpty) {
+                              parts.add(houseNum.isNotEmpty
+                                  ? '$street, $houseNum'
+                                  : street);
+                            }
+                            if (city.isNotEmpty) parts.add(city);
+                            if (postcode.isNotEmpty) parts.add(postcode);
+                            cleanAddr = parts.join(', ');
+                          }
+
+                          if (cleanAddr.isEmpty) {
+                            cleanAddr = suggestion['display_name'] ?? '';
+                          }
+
+                          _addressController.text = cleanAddr;
+                          setState(() {
+                            _currentPosition = Position(
+                              latitude: double.parse(suggestion['lat']),
+                              longitude: double.parse(suggestion['lon']),
+                              timestamp: DateTime.now(),
+                              accuracy: 0,
+                              altitude: 0,
+                              heading: 0,
+                              speed: 0,
+                              speedAccuracy: 0,
+                              altitudeAccuracy: 0,
+                              headingAccuracy: 0,
+                            );
+                          });
+                        },
+                        emptyBuilder: (context) => const Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text('No se encontraron direcciones'),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Evidencias gráficas (mín. 1):',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
+                              if (_imageFiles.isEmpty && _isLoading == false)
+                                const Text(
+                                  'Obligatorio *',
                                   style: TextStyle(
+                                      color: Colors.red,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: _imageFiles.isEmpty
+                                    ? Colors.red.withValues(alpha: 0.3)
+                                    : Colors.transparent,
+                                width: 2,
+                              ),
+                            ),
+                            child: SizedBox(
+                              height: 100,
+                              child: ListView.builder(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: _imageFiles.length + 1,
+                                itemBuilder: (context, index) {
+                                  if (index == _imageFiles.length) {
+                                    return Padding(
+                                      padding:
+                                          const EdgeInsets.only(right: 8.0),
+                                      child: GestureDetector(
+                                        onTap: () =>
+                                            _showImageSourceActionSheet(
+                                                context),
+                                        child: Container(
+                                          width: 100,
+                                          decoration: BoxDecoration(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .surfaceContainerHighest,
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            border: Border.all(
+                                                color: Theme.of(context)
+                                                    .dividerColor),
+                                          ),
+                                          child: Icon(
+                                              Icons.add_a_photo_outlined,
+                                              color: Theme.of(context)
+                                                  .textTheme
+                                                  .bodySmall
+                                                  ?.color),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 8.0),
+                                    child: Stack(
+                                      children: [
+                                        Container(
+                                          width: 100,
+                                          decoration: BoxDecoration(
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            image: DecorationImage(
+                                              image: kIsWeb
+                                                  ? MemoryImage(
+                                                      _webImages[index])
+                                                  : FileImage(File(
+                                                          _imageFiles[index]
+                                                              .path))
+                                                      as ImageProvider,
+                                              fit: BoxFit.cover,
+                                            ),
+                                          ),
+                                        ),
+                                        Positioned(
+                                          top: 4,
+                                          right: 4,
+                                          child: GestureDetector(
+                                            onTap: () => _removeImage(index),
+                                            child: Container(
+                                              padding: const EdgeInsets.all(2),
+                                              decoration: const BoxDecoration(
+                                                  color: Colors.red,
+                                                  shape: BoxShape.circle),
+                                              child: const Icon(Icons.close,
+                                                  size: 16,
+                                                  color: Colors.white),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Ubicación del incidente:',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: _getCurrentLocation,
+                            child: Container(
+                              height: 80,
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: _currentPosition != null
+                                    ? Colors.green.withValues(alpha: 0.1)
+                                    : Theme.of(context)
+                                        .colorScheme
+                                        .surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                    color: _currentPosition != null
+                                        ? Colors.green
+                                        : Theme.of(context).dividerColor),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    _currentPosition != null
+                                        ? Icons.location_on
+                                        : Icons.location_off,
                                     color: _currentPosition != null
                                         ? Colors.green
                                         : Theme.of(context)
                                             .textTheme
                                             .bodySmall
                                             ?.color,
-                                    fontWeight: _currentPosition != null
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    _currentPosition != null
+                                        ? 'Ubicación capturada correctamente'
+                                        : 'Pulsa para capturar ubicación GPS',
+                                    style: TextStyle(
+                                      color: _currentPosition != null
+                                          ? Colors.green
+                                          : Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.color,
+                                      fontWeight: _currentPosition != null
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 40),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: _submitForm,
-                        child: const Text('Enviar incidencia',
-                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        ],
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
+      ),
     );
   }
 }

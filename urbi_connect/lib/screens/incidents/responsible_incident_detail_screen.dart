@@ -208,7 +208,7 @@ class _ResponsibleIncidentDetailScreenState
                   child: const Row(
                     children: [
                       Icon(Icons.info_outline, color: Colors.red),
-                      const SizedBox(width: 12),
+                      SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           'Esta incidencia ha sido eliminada por el ciudadano y no se puede modificar su estado.',

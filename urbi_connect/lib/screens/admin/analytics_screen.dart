@@ -644,7 +644,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
 class _IncidentStatsPie extends StatefulWidget {
   final Stream<QuerySnapshot> stream;
-  const _IncidentStatsPie({super.key, required this.stream});
+  const _IncidentStatsPie({required this.stream});
 
   @override
   State<_IncidentStatsPie> createState() => _IncidentStatsPieState();

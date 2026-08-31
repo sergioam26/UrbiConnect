@@ -259,8 +259,7 @@ class SupportService {
 
       if (!ticketDoc.exists) return;
 
-      final Map<String, dynamic> ticketData =
-          ticketDoc.data() as Map<String, dynamic>? ?? {};
+      final Map<String, dynamic> ticketData = ticketDoc.data() ?? {};
       final String currentStatus = ticketData['estado'] ?? 'Cerrado';
       final String userId = ticketData['id_usuario'] ?? '';
 
@@ -338,8 +337,7 @@ class SupportService {
       if (senderId != userId) {
         final senderDoc = await _db.collection('users').doc(senderId).get();
         if (senderDoc.exists) {
-          final Map<String, dynamic> senderData =
-              senderDoc.data() as Map<String, dynamic>? ?? {};
+          final Map<String, dynamic> senderData = senderDoc.data() ?? {};
           final String role =
               (senderData['rol'] ?? '').toString().toLowerCase();
           if (role == 'admin') {

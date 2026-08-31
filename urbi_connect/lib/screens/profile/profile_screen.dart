@@ -342,8 +342,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     );
                   },
                 ),
-                if (profile?.role.toLowerCase() != 'admin' &&
-                    profile?.email.toLowerCase() !=
+                if (profile.role.toLowerCase() != 'admin' &&
+                    profile.email.toLowerCase() !=
                         AppConfig.superUserEmail.toLowerCase()) ...[
                   _buildDivider(context),
                   _buildActionTile(
@@ -361,7 +361,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     },
                   ),
                 ],
-                if (profile?.email.toLowerCase() ==
+                if (profile.email.toLowerCase() ==
                     AppConfig.superUserEmail.toLowerCase()) ...[
                   _buildDivider(context),
                   _buildActionTile(
@@ -802,7 +802,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }) {
     return SwitchListTile(
       value: isSelected,
-      activeColor: Theme.of(context).colorScheme.primary,
+      activeThumbColor: Theme.of(context).colorScheme.primary,
       secondary: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(

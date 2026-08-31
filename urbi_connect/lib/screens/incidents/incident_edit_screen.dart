@@ -163,8 +163,9 @@ class _IncidentEditScreenState extends State<IncidentEditScreen> {
             final postcode = addrMap['postcode'] ?? '';
 
             List<String> parts = [];
-            if (street.isNotEmpty)
+            if (street.isNotEmpty) {
               parts.add(houseNum.isNotEmpty ? '$street, $houseNum' : street);
+            }
             if (city.isNotEmpty) parts.add(city);
             if (postcode.isNotEmpty) parts.add(postcode);
             addr = parts.join(', ');
@@ -298,281 +299,330 @@ class _IncidentEditScreenState extends State<IncidentEditScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Editar incidencia')),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Editar los detalles de tu reporte',
-                        style: TextStyle(color: Color(0xFF94A3B8))),
-                    const SizedBox(height: 24),
-                    if (_firestoreCategories.isEmpty)
-                      const LinearProgressIndicator()
-                    else
-                      DropdownButtonFormField<String>(
-                        initialValue: _selectedCategoryId,
-                        items: _firestoreCategories
-                            .map((cat) => DropdownMenuItem(
-                                  value: cat['id'],
-                                  child: Text(cat['nombre']!,
-                                      style: const TextStyle(fontSize: 14)),
-                                ))
-                            .toList(),
-                        onChanged: (value) =>
-                            setState(() => _selectedCategoryId = value),
-                        decoration: InputDecoration(
-                          labelText: 'Categoría',
-                          border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16)),
-                          filled: true,
-                          fillColor: Theme.of(context)
-                              .colorScheme
-                              .surfaceContainerHighest,
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Editar incidencia')),
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            border: Border(
+              top: BorderSide(
+                color: Theme.of(context).dividerColor.withValues(alpha: 0.2),
+                width: 1,
+              ),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                offset: const Offset(0, -2),
+                blurRadius: 6,
+              ),
+            ],
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+              child: SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _submitForm,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Text(
+                          'Guardar cambios',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                        isExpanded: true,
-                      ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _titleController,
-                      decoration: InputDecoration(
-                        labelText: 'Título de la incidencia',
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16)),
-                        filled: true,
-                        fillColor: Theme.of(context)
-                            .colorScheme
-                            .surfaceContainerHighest,
-                        counterText: '',
-                      ),
-                      maxLength: 100,
-                      validator: (value) => (value == null || value.isEmpty)
-                          ? 'Introduce un título'
-                          : null,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _descriptionController,
-                      decoration: InputDecoration(
-                        labelText: 'Descripción',
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16)),
-                        filled: true,
-                        fillColor: Theme.of(context)
-                            .colorScheme
-                            .surfaceContainerHighest,
-                        alignLabelWithHint: true,
-                      ),
-                      maxLines: 4,
-                      validator: (value) => (value == null || value.isEmpty)
-                          ? 'Describe el problema'
-                          : null,
-                    ),
-                    const SizedBox(height: 16),
-                    TypeAheadField<Map<String, dynamic>>(
-                      controller: _addressController,
-                      builder: (context, controller, focusNode) {
-                        return TextFormField(
-                          controller: controller,
-                          focusNode: focusNode,
+                ),
+              ),
+            ),
+          ),
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.fromLTRB(24.0, 24.0, 24.0, 32.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Editar los detalles de tu reporte',
+                          style: TextStyle(color: Color(0xFF94A3B8))),
+                      const SizedBox(height: 24),
+                      if (_firestoreCategories.isEmpty)
+                        const LinearProgressIndicator()
+                      else
+                        DropdownButtonFormField<String>(
+                          initialValue: _selectedCategoryId,
+                          items: _firestoreCategories
+                              .map((cat) => DropdownMenuItem(
+                                    value: cat['id'],
+                                    child: Text(cat['nombre']!,
+                                        style: const TextStyle(fontSize: 14)),
+                                  ))
+                              .toList(),
+                          onChanged: (value) =>
+                              setState(() => _selectedCategoryId = value),
                           decoration: InputDecoration(
-                            labelText: 'Dirección (Manual o captura GPS)',
-                            hintText: 'Ej: Calle Real, 5',
+                            labelText: 'Categoría',
                             border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16)),
                             filled: true,
                             fillColor: Theme.of(context)
                                 .colorScheme
                                 .surfaceContainerHighest,
-                            prefixIcon: const Icon(Icons.map_outlined),
-                            suffixIcon: IconButton(
-                              icon: const Icon(Icons.my_location),
-                              onPressed: _getCurrentLocation,
-                              tooltip: 'Usar mi ubicación actual',
-                            ),
                           ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Por favor, introduce una dirección o usa el GPS';
-                            }
-                            return null;
-                          },
-                        );
-                      },
-                      suggestionsCallback: (pattern) async {
-                        if (pattern.length < 2) return [];
-                        try {
-                          String urlStr =
-                              'https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(pattern)}&format=json&limit=10&addressdetails=1&countrycodes=es&accept-language=es';
-
-                          if (_currentPosition != null) {
-                            final double lat = _currentPosition!.latitude;
-                            final double lon = _currentPosition!.longitude;
-                            const double delta = 0.05;
-                            urlStr +=
-                                '&viewbox=${lon - delta},${lat + delta},${lon + delta},${lat - delta}&bounded=0';
-                          }
-
-                          final url = Uri.parse(urlStr);
-                          final response = await http.get(url, headers: {
-                            'User-Agent': 'UrbiConnect_App_v1_Sergio'
-                          });
-                          if (response.statusCode == 200) {
-                            final List data = json.decode(response.body);
-                            // Filtrar resultados muy genéricos o poco útiles si hay otros mejores
-                            final filtered = data.where((item) {
-                              final type = item['type'] ?? '';
-                              final cls = item['class'] ?? '';
-                              // Excluir tipos administrativos muy amplios si no son lo que se busca
-                              if (cls == 'boundary' && type == 'administrative')
-                                return false;
-                              return true;
-                            }).toList();
-                            return (filtered.isNotEmpty ? filtered : data)
-                                .cast<Map<String, dynamic>>();
-                          }
-                        } catch (e) {
-                          debugPrint("Suggestion error: $e");
-                        }
-                        return [];
-                      },
-                      itemBuilder: (context, suggestion) {
-                        final addrMap =
-                            suggestion['address'] as Map<String, dynamic>?;
-                        String title = '';
-                        if (addrMap != null) {
-                          final street = addrMap['road'] ??
-                              addrMap['pedestrian'] ??
-                              addrMap['cycleway'] ??
-                              '';
-                          final houseNum = addrMap['house_number'] ?? '';
-                          title = street;
-                          if (houseNum.isNotEmpty) title += ' $houseNum';
-                          if (title.isEmpty)
-                            title = suggestion['display_name'] ?? '';
-                        } else {
-                          title = suggestion['display_name'] ?? '';
-                        }
-
-                        return ListTile(
-                          leading:
-                              const Icon(Icons.location_on, color: Colors.blue),
-                          title: Text(title,
-                              maxLines: 1, overflow: TextOverflow.ellipsis),
-                          subtitle: Text(suggestion['display_name'] ?? '',
-                              style: const TextStyle(fontSize: 11),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis),
-                        );
-                      },
-                      onSelected: (suggestion) {
-                        final addrMap =
-                            suggestion['address'] as Map<String, dynamic>?;
-                        String cleanAddr = '';
-                        if (addrMap != null) {
-                          final street = addrMap['road'] ??
-                              addrMap['pedestrian'] ??
-                              addrMap['cycleway'] ??
-                              '';
-                          final houseNum = addrMap['house_number'] ?? '';
-                          final city = addrMap['city'] ??
-                              addrMap['town'] ??
-                              addrMap['village'] ??
-                              '';
-                          final postcode = addrMap['postcode'] ?? '';
-
-                          List<String> parts = [];
-                          if (street.isNotEmpty)
-                            parts.add(houseNum.isNotEmpty
-                                ? '$street, $houseNum'
-                                : street);
-                          if (city.isNotEmpty) parts.add(city);
-                          if (postcode.isNotEmpty) parts.add(postcode);
-                          cleanAddr = parts.join(', ');
-                        }
-
-                        if (cleanAddr.isEmpty) {
-                          cleanAddr = suggestion['display_name'] ?? '';
-                        }
-
-                        _addressController.text = cleanAddr;
-                        setState(() {
-                          _currentPosition = Position(
-                            latitude: double.parse(suggestion['lat']),
-                            longitude: double.parse(suggestion['lon']),
-                            timestamp: DateTime.now(),
-                            accuracy: 0,
-                            altitude: 0,
-                            heading: 0,
-                            speed: 0,
-                            speedAccuracy: 0,
-                            altitudeAccuracy: 0,
-                            headingAccuracy: 0,
-                          );
-                        });
-                      },
-                      emptyBuilder: (context) => const Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: Text('No se encontraron direcciones'),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    const Text('Ubicación del incidente (GPS):',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 12),
-                    GestureDetector(
-                      onTap: _getCurrentLocation,
-                      child: Container(
-                        height: 60,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context)
+                          isExpanded: true,
+                        ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _titleController,
+                        decoration: InputDecoration(
+                          labelText: 'Título de la incidencia',
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16)),
+                          filled: true,
+                          fillColor: Theme.of(context)
                               .colorScheme
                               .surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(16),
-                          border:
-                              Border.all(color: Theme.of(context).dividerColor),
+                          counterText: '',
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.my_location),
-                            const SizedBox(width: 12),
-                            const Text('Actualizar ubicación GPS'),
-                          ],
+                        maxLength: 100,
+                        validator: (value) => (value == null || value.isEmpty)
+                            ? 'Introduce un título'
+                            : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _descriptionController,
+                        decoration: InputDecoration(
+                          labelText: 'Descripción',
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16)),
+                          filled: true,
+                          fillColor: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
+                          alignLabelWithHint: true,
+                        ),
+                        maxLines: 4,
+                        validator: (value) => (value == null || value.isEmpty)
+                            ? 'Describe el problema'
+                            : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TypeAheadField<Map<String, dynamic>>(
+                        controller: _addressController,
+                        builder: (context, controller, focusNode) {
+                          return TextFormField(
+                            controller: controller,
+                            focusNode: focusNode,
+                            decoration: InputDecoration(
+                              labelText: 'Dirección (Manual o captura GPS)',
+                              hintText: 'Ej: Calle Real, 5',
+                              border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16)),
+                              filled: true,
+                              fillColor: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHighest,
+                              prefixIcon: const Icon(Icons.map_outlined),
+                              suffixIcon: IconButton(
+                                icon: const Icon(Icons.my_location),
+                                onPressed: _getCurrentLocation,
+                                tooltip: 'Usar mi ubicación actual',
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Por favor, introduce una dirección o usa el GPS';
+                              }
+                              return null;
+                            },
+                          );
+                        },
+                        suggestionsCallback: (pattern) async {
+                          if (pattern.length < 2) return [];
+                          try {
+                            String urlStr =
+                                'https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(pattern)}&format=json&limit=10&addressdetails=1&countrycodes=es&accept-language=es';
+
+                            if (_currentPosition != null) {
+                              final double lat = _currentPosition!.latitude;
+                              final double lon = _currentPosition!.longitude;
+                              const double delta = 0.05;
+                              urlStr +=
+                                  '&viewbox=${lon - delta},${lat + delta},${lon + delta},${lat - delta}&bounded=0';
+                            }
+
+                            final url = Uri.parse(urlStr);
+                            final response = await http.get(url, headers: {
+                              'User-Agent': 'UrbiConnect_App_v1_Sergio'
+                            });
+                            if (response.statusCode == 200) {
+                              final List data = json.decode(response.body);
+                              // Filtrar resultados muy genéricos o poco útiles si hay otros mejores
+                              final filtered = data.where((item) {
+                                final type = item['type'] ?? '';
+                                final cls = item['class'] ?? '';
+                                // Excluir tipos administrativos muy amplios si no son lo que se busca
+                                if (cls == 'boundary' &&
+                                    type == 'administrative') {
+                                  return false;
+                                }
+                                return true;
+                              }).toList();
+                              return (filtered.isNotEmpty ? filtered : data)
+                                  .cast<Map<String, dynamic>>();
+                            }
+                          } catch (e) {
+                            debugPrint("Suggestion error: $e");
+                          }
+                          return [];
+                        },
+                        itemBuilder: (context, suggestion) {
+                          final addrMap =
+                              suggestion['address'] as Map<String, dynamic>?;
+                          String title = '';
+                          if (addrMap != null) {
+                            final street = addrMap['road'] ??
+                                addrMap['pedestrian'] ??
+                                addrMap['cycleway'] ??
+                                '';
+                            final houseNum = addrMap['house_number'] ?? '';
+                            title = street;
+                            if (houseNum.isNotEmpty) title += ' $houseNum';
+                            if (title.isEmpty) {
+                              title = suggestion['display_name'] ?? '';
+                            }
+                          } else {
+                            title = suggestion['display_name'] ?? '';
+                          }
+
+                          return ListTile(
+                            leading: const Icon(Icons.location_on,
+                                color: Colors.blue),
+                            title: Text(title,
+                                maxLines: 1, overflow: TextOverflow.ellipsis),
+                            subtitle: Text(suggestion['display_name'] ?? '',
+                                style: const TextStyle(fontSize: 11),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis),
+                          );
+                        },
+                        onSelected: (suggestion) {
+                          final addrMap =
+                              suggestion['address'] as Map<String, dynamic>?;
+                          String cleanAddr = '';
+                          if (addrMap != null) {
+                            final street = addrMap['road'] ??
+                                addrMap['pedestrian'] ??
+                                addrMap['cycleway'] ??
+                                '';
+                            final houseNum = addrMap['house_number'] ?? '';
+                            final city = addrMap['city'] ??
+                                addrMap['town'] ??
+                                addrMap['village'] ??
+                                '';
+                            final postcode = addrMap['postcode'] ?? '';
+
+                            List<String> parts = [];
+                            if (street.isNotEmpty) {
+                              parts.add(houseNum.isNotEmpty
+                                  ? '$street, $houseNum'
+                                  : street);
+                            }
+                            if (city.isNotEmpty) parts.add(city);
+                            if (postcode.isNotEmpty) parts.add(postcode);
+                            cleanAddr = parts.join(', ');
+                          }
+
+                          if (cleanAddr.isEmpty) {
+                            cleanAddr = suggestion['display_name'] ?? '';
+                          }
+
+                          _addressController.text = cleanAddr;
+                          setState(() {
+                            _currentPosition = Position(
+                              latitude: double.parse(suggestion['lat']),
+                              longitude: double.parse(suggestion['lon']),
+                              timestamp: DateTime.now(),
+                              accuracy: 0,
+                              altitude: 0,
+                              heading: 0,
+                              speed: 0,
+                              speedAccuracy: 0,
+                              altitudeAccuracy: 0,
+                              headingAccuracy: 0,
+                            );
+                          });
+                        },
+                        emptyBuilder: (context) => const Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text('No se encontraron direcciones'),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    const Text('Evidencia fotográfica (actuales y nuevas)',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 12),
-                    _buildImagePreview(),
-                    const SizedBox(height: 40),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton(
-                        onPressed: _submitForm,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              Theme.of(context).colorScheme.primary,
-                          foregroundColor: Colors.white,
+                      const SizedBox(height: 24),
+                      const Text('Ubicación del incidente (GPS):',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 12),
+                      GestureDetector(
+                        onTap: _getCurrentLocation,
+                        child: Container(
+                          height: 60,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                                color: Theme.of(context).dividerColor),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.my_location),
+                              SizedBox(width: 12),
+                              Text('Actualizar ubicación GPS'),
+                            ],
+                          ),
                         ),
-                        child: const Text('Guardar cambios',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 16)),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 24),
+                      const Text('Evidencia fotográfica (actuales y nuevas)',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 12),
+                      _buildImagePreview(),
+                    ],
+                  ),
                 ),
               ),
-            ),
+      ),
     );
   }
 
